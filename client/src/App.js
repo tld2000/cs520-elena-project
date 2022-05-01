@@ -113,7 +113,7 @@ async function fetchAsync (startCoord,endCoord) {
   
 function createGraph(elements,startCoord,endCoord){
     // Allow for multiple paths of different weights between two nodes
-    const graph = new Graph({multi: true});
+    const graph = new Graph();
 
     // Keep track of nodes around the inputted start and end locations
     let possibleStart = []
@@ -125,7 +125,7 @@ function createGraph(elements,startCoord,endCoord){
         let prevNode = null;
         let prevNodeCoord = null;
         const allC = []
-        
+
         // Iterate through the nodes in each path way
         for(let j = 0; j < currElem.nodes.length;j++){
             let currNode = currElem.nodes[j]
@@ -139,13 +139,13 @@ function createGraph(elements,startCoord,endCoord){
                 var lengthStart = turf.length(nearStart, {units: 'miles'}); 
                 var nearEnd = turf.lineString([endCoord, currCoord]);
                 var lengthEnd = turf.length(nearEnd, {units: 'miles'}); 
-                if(lengthStart < 0.02){
+                if(lengthStart < 0.005){
                     possibleStart.push(currNode)
                     const marker1 = new mapboxgl.Marker()
                         .setLngLat(currCoord)
                         .addTo(map.current);
                 }
-                if(lengthEnd < 0.02){
+                if(lengthEnd < 0.005){
                     possibleEnd.push(currNode)
                     const marker1 = new mapboxgl.Marker()
                     .setLngLat(currCoord)
@@ -170,13 +170,17 @@ function createGraph(elements,startCoord,endCoord){
                 if(elevationDiff < 0) elevationDiff = 0
                 var line = turf.lineString([prevNodeCoord, currCoord]);
                 var length = turf.length(line, {units: 'miles'}); 
+                if(length < 0.001){
+                    continue
+                }
                 if(!graph.hasNode(currNode)){
                     graph.addNode(currNode,{coordinates: currCoord})
                 }
-                
-                // Keep track of elevation gain, and distance between two nodes to act as weight
-                // for the path finding algorithm
-                graph.addEdge(prevNode,currNode,{elevationGain: elevationDiff,distance:length})
+                if(!graph.hasEdge(prevNode,currNode)){
+                    // Keep track of elevation gain, and distance between two nodes to act as weight
+                    // for the path finding algorithm
+                    graph.addUndirectedEdge(prevNode,currNode,{elevationGain: elevationDiff,distance:length})
+                }
                 prevNode = currNode;
                 prevNodeCoord = currCoord;
             }
@@ -185,109 +189,87 @@ function createGraph(elements,startCoord,endCoord){
     }
     console.log(possibleStart)
     console.log(possibleEnd)
+    let shortestPath = findShortestPath(graph,possibleStart[0],possibleEnd[0])
+    drawRoute(graph,shortestPath)
 }
 
-// let findShortestPath = (graph, startNode, endNode) => {
- 
-//   // track distances from the start node using a hash object
-//     let distances = {};
-//     distances[endNode] = Infinity;
-//     distances = Object.assign(distances, graph[startNode]);
-//     // track paths using a hash object
-//     let parents = { endNode: null };
-//     for (let child in graph[startNode]) {
-//       parents[child] = startNode;
-//     }
- 
-//    // collect visited nodes
-//    let visited = [];
-//    // find the nearest node
-//    let node = shortestDistanceNode(distances, visited);
- 
-//     // for that node:
-//     while (node) {
-//        // find its distance from the start node & its child nodes
-//        let distance = distances[node];
-//        let children = graph[node]; 
- 
-//        // for each of those child nodes:
-//        for (let child in children) {
- 
-//           // make sure each child node is not the start node
-//           if (String(child) === String(startNode)) {
-//              continue;
-//           } else {
-//              // save the distance from start node to child node
-//              let newdistance = distance + children[child];
-//              // if there’s no recorded distance from the start node to the child node in the distances object
-//              // or if the recorded distance is shorter than the previously stored distance from the start node to the child node
-//              if (!distances[child] || distances[child] > newdistance) {
-//                 // save the distance to the object
-//                 distances[child] = newdistance;
-//                 // record the path
-//                 parents[child] = node;
-//             } 
-//          }
-//       } 
-//     // move the current node to the visited set
-//     visited.push(node);
-//    // move to the nearest neighbor node
-//    node = shortestDistanceNode(distances, visited);
-//    }
- 
-//    // using the stored paths from start node to end node
-//    // record the shortest path
-//    let shortestPath = [endNode];
-//    let parent = parents[endNode];
-//    while (parent) {
-//       shortestPath.push(parent);
-//       parent = parents[parent];
-//    }
-//    shortestPath.reverse();
- 
-//    //this is the shortest path
-// // return the shortest path & the end node’s distance from the start node
-// };
-async function drawRoute(coord1,coord2,maximize){
-    resetPaths();
-    const result = await getRoutes(coord1, coord2)
-    let coordinates = result.features[0].geometry.coordinates;
-    let prev = null;
-    coordinates = calculateElevation(maximize,result);
-    for(let i =0; i < result.features.length; i++){
-        map.current.addSource(('route' + i), {
-            'type': 'geojson',
-            'data': {
-            'type': 'Feature',
-            'properties': {},
-            'geometry': {
-            'type': 'LineString',
-            'coordinates': result.features[i].geometry.coordinates
-            }
-            }
-            });
-        map.current.addLayer({
-                'id': 'route' + i,
-                'type': 'line',
-                'source': 'route'+ i,
-                'layout': {
-                'line-join': 'round',
-                'line-cap': 'round'
-                },
-                'paint': {
-                'line-color': '#888',
-                'line-width': 8
-                }
-        });
+function minWeightNode (weights, visited){
+      let shortest = null;
+      for (let node in weights) {
+          let currShortest = shortest === null || weights[node] < weights[shortest];
+          if (currShortest && !visited.includes(node)) {
+              shortest = node;
+          }
+      }
+      return shortest;
+  };
+
+function findShortestPath (graph, startNode, endNode) {
+    let startCoord = graph.getNodeAttribute(startNode)["coordinates"]
+    let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
+    console.log(startCoord)
+    console.log(endCoord)
+    let minLine= turf.lineString([startCoord, endCoord]);
+    let minDistance = turf.length(minLine, {units: 'miles'}); 
+    let weights = {};
+    weights[endNode] = Infinity;
+    let parents = { endNode: null };
+    for(let i = 0; i < graph.neighbors(startNode).length; i++){
+        let child = graph.neighbors(startNode)[i]
+        weights[child] = graph.getUndirectedEdgeAttributes(startNode, child)["distance"];
+        parents[child] = startNode;
     }
-    map.current.addSource('route', {
+
+    let visited = [];
+    let node = minWeightNode(weights, visited);
+ 
+    while (node) {
+       let weight = weights[node];
+       let children = graph.neighbors(node); 
+ 
+       for(let i = 0; i < graph.neighbors(node).length; i++){
+          let child = graph.neighbors(node)[i]
+          if (String(child) === String(startNode)) {
+             continue;
+          } else {
+             let newdistance = weight + graph.getUndirectedEdgeAttributes(node, child)["distance"];
+             if(newdistance > minDistance + 0.05){
+                continue;
+             } 
+             if (!weights[child] || weights[child] >= newdistance) {
+                weights[child] = newdistance;
+                parents[child] = node;
+            } 
+         }
+      } 
+    visited.push(node);
+   node = minWeightNode(weights, visited);
+   }
+ 
+   let shortestPath = [endNode];
+   let parent = parents[endNode];
+   while (parent) {
+      shortestPath.push(parent);
+      parent = parents[parent];
+   }
+   shortestPath.reverse();
+   return shortestPath;
+
+};
+
+async function drawRoute(graph, nodeIds){
+    let allCoords = []
+    for(let i = 0; i < nodeIds.length;i++){
+        allCoords.push(graph.getNodeAttribute(nodeIds[i],"coordinates"));
+    }
+        map.current.addSource('route', {
         'type': 'geojson',
         'data': {
         'type': 'Feature',
         'properties': {},
         'geometry': {
         'type': 'LineString',
-        'coordinates': coordinates
+        'coordinates': allCoords
         }
         }
         });
@@ -305,6 +287,7 @@ async function drawRoute(coord1,coord2,maximize){
             }
     });
 }
+
 async function switchTransport(vehicle){
     modeTransport.current = vehicle;
 }
