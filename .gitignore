@@ -1,0 +1,6 @@
+/backend/.idea/
+/backend/target/
+*.bak
+/backend/*.ipynb
+/backend/.ipynb_checkpoints
+/backend/src/__pycache__/
