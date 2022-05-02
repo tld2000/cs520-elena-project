@@ -3,3 +3,4 @@
 *.bak
 /backend/*.ipynb
 /backend/.ipynb_checkpoints
+/backend/__pycache__/
