@@ -21,9 +21,12 @@ export default function App() {
     const geocoderContainer2 = useRef(null);
     const coord1 = useRef(null);
     const coord2 = useRef(null);
-    const modeTransport = useState("car");
+    const allMarkers = useRef(null);
+    const modeTransport = useState('["highway"="footway"]');
+    modeTransport.current = '["highway"="footway"]'
 useEffect(() => {
     if (map.current) return; // initialize map only once
+    
     map.current = new mapboxgl.Map({
     container: mapContainer.current,
     style: 'mapbox://styles/mapbox/streets-v11',
@@ -111,11 +114,8 @@ async function fetchAsync (startCoord,endCoord) {
     console.log(endCoord);
     let query = undefined;
     let bounds = map.current.getBounds()
-    if(startCoord[1] < endCoord[1]){
-        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
-    } else {
-        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
-    }
+    console.log(modeTransport.current)
+    query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way`+`${modeTransport.current}`+`(${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
     let response = await fetch(query);
     let data = await response.json();
     let x = await getElevation(data.elements,startCoord,endCoord)
@@ -299,12 +299,12 @@ function findShortestPath (graph, startNode, endNode) {
           if (String(child) === String(startNode)) {
              continue;
           } else {
-             let newdistance = weight + graph.getUndirectedEdgeAttributes(node, child)["distance"];
-            //  if(newdistance > minDistance){
-            //     continue;
-            //  } 
-             if (!weights[child] || weights[child] >= newdistance) {
-                weights[child] = newdistance;
+            //  let newdistance = weight + graph.getUndirectedEdgeAttributes(node, child)["distance"];
+             let a = Math.pow(graph.getUndirectedEdgeAttributes(node, child)["elevationGain"],2);
+             let b = Math.pow(graph.getUndirectedEdgeAttributes(node, child)["distance"],2)
+             let newDistance = weight + graph.getUndirectedEdgeAttributes(node, child)["distance"]
+             if (!weights[child] || weights[child] >= newDistance) {
+                weights[child] = newDistance;
                 parents[child] = node;
             } 
          }
@@ -315,14 +315,18 @@ function findShortestPath (graph, startNode, endNode) {
    console.log("start node " + startNode)
    console.log("end node" + endNode)
    console.log("parents " + JSON.stringify(parents, null, 4))
- 
+   let totalElevationGain = 0
    let shortestPath = [endNode];
    let parent = parents[endNode];
    while (parent) {
       shortestPath.push(parent);
+      if(parents[parent]){
+        totalElevationGain += graph.getUndirectedEdgeAttributes(parent,parents[parent])["elevationGain"]
+      }
       parent = parents[parent];
    }
    console.log(shortestPath);
+   console.log("total elevation gain " + totalElevationGain)
    shortestPath.reverse();
    return shortestPath;
 
@@ -362,17 +366,7 @@ async function drawRoute(graph, nodeIds){
 async function switchTransport(vehicle){
     modeTransport.current = vehicle;
 }
-async function getRoutes(coord1,coord2){
-    const routeData = await tt.services.calculateRoute({
-        key: ttAccess,
-        locations: [coord1,coord2],
-        travelMode: modeTransport.current,
-        maxAlternatives: 5,
-      })
 
-    return routeData.toGeoJson();
-
-}
 return (
 <div>
     <div className="sidebar">
