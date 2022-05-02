@@ -105,19 +105,60 @@ function calculateElevation(max, result){
 }
 
 async function fetchAsync (startCoord,endCoord) {
-    let response = await fetch('https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](42.37327879079956,-72.55155859124777,42.40601313381916,-72.49849306928463);out geom;');
+    console.log('start-end')
+    console.log(startCoord);
+    console.log(endCoord);
+    let query = undefined;
+    if(startCoord[1] < endCoord[1]){
+        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${startCoord[1]},${startCoord[0]},${endCoord[1]},${endCoord[0]});out geom;`
+    } else {
+        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${endCoord[1]},${endCoord[0]},${startCoord[1]},${startCoord[0]});out geom;`
+    }
+    let response = await fetch(query);
     let data = await response.json();
-    console.log(createGraph(data.elements,startCoord,endCoord))
+    let x = await getElevation(data.elements,startCoord,endCoord)
+    console.log("X " + x)
     return data;
   }
+
+
+async function getElevation(elements,startCoord,endCoord){
+    // query elevation for all nodes
+    var elemDict = {}
+    for(let i = 0; i < elements.length; i++){
+        let currElement = elements[i]
+        elemDict[currElement['id']] = {}
+        for(let j = 0; j < currElement.nodes.length;j++){
+            elemDict[currElement['id']][currElement.nodes[j]] = [currElement.geometry[j].lon,currElement.geometry[j].lat]
+        }
+    }
+    let jsonElem = JSON.stringify(elemDict)
+    let response = await fetch('http://localhost:5000/elevation', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonElem
+      }).then(async function(result){ 
+          let temp = result.json()
+          console.log(temp)
+          return temp
+        }).then(result => createGraph(elements, startCoord, endCoord, result['results']))
+}
+
   
-function createGraph(elements,startCoord,endCoord){
+function createGraph(elements,startCoord,endCoord,elemElevationDict){
     // Allow for multiple paths of different weights between two nodes
     const graph = new Graph();
+    console.log(elemElevationDict)
 
     // Keep track of nodes around the inputted start and end locations
-    let possibleStart = []
-    let possibleEnd = []
+    let possibleStart = undefined
+    let minDistanceToStart = Number.MAX_VALUE
+    let possibleEnd = undefined
+    let minDistanceToEnd = Number.MAX_VALUE
+
 
     //Iterate through every path way
     for(let i = 0; i < elements.length; i++){
@@ -131,26 +172,17 @@ function createGraph(elements,startCoord,endCoord){
             let currNode = currElem.nodes[j]
             let currCoord = [currElem.geometry[j].lon,currElem.geometry[j].lat]
             allC.push(currCoord)
-
-            // Check if node is near the start or end coordinates 
-            // If so, keep track of the NodeID to be used as start and end Node in path finding algorithm
-            if(!graph.hasNode(currNode)){
-                var nearStart = turf.lineString([startCoord, currCoord]);
-                var lengthStart = turf.length(nearStart, {units: 'miles'}); 
-                var nearEnd = turf.lineString([endCoord, currCoord]);
-                var lengthEnd = turf.length(nearEnd, {units: 'miles'}); 
-                if(lengthStart < 0.005){
-                    possibleStart.push(currNode)
-                    const marker1 = new mapboxgl.Marker()
-                        .setLngLat(currCoord)
-                        .addTo(map.current);
-                }
-                if(lengthEnd < 0.005){
-                    possibleEnd.push(currNode)
-                    const marker1 = new mapboxgl.Marker()
-                    .setLngLat(currCoord)
-                    .addTo(map.current);
-                }
+            
+            // track start-end pos
+            var lengthStart = turf.length(turf.lineString([startCoord, currCoord]), {units: 'miles'});
+            var lengthEnd = turf.length(turf.lineString([endCoord, currCoord]), {units: 'miles'});
+            if(lengthStart < minDistanceToStart){
+                possibleStart = currNode;
+                minDistanceToStart = lengthStart;
+            }
+            if(lengthEnd < minDistanceToEnd){
+                possibleEnd = currNode;
+                minDistanceToEnd = lengthEnd;
             }
 
             // If it's the first node in the path, just add it to the graph
@@ -164,9 +196,13 @@ function createGraph(elements,startCoord,endCoord){
 
             // Every successor node draws an edge between the previous node and the current one
             else{
-                let prevElevation = map.current.queryTerrainElevation(prevNodeCoord);
-                let currElevation = map.current.queryTerrainElevation(currCoord)
+                // let prevElevation = map.current.queryTerrainElevation(prevNodeCoord);
+                let prevElevation = elemElevationDict[currElem['id']][prevNode];
+                // let currElevation = map.current.queryTerrainElevation(currCoord)
+                let currElevation = elemElevationDict[currElem['id']][currNode];
+
                 let elevationDiff = currElevation - prevElevation;
+                // console.log('elediff' + elevationDiff)
                 if(elevationDiff < 0) elevationDiff = 0
                 var line = turf.lineString([prevNodeCoord, currCoord]);
                 var length = turf.length(line, {units: 'miles'}); 
@@ -187,9 +223,8 @@ function createGraph(elements,startCoord,endCoord){
         }
         
     }
-    console.log(possibleStart)
-    console.log(possibleEnd)
-    let shortestPath = findShortestPath(graph,possibleStart[0],possibleEnd[0])
+
+    let shortestPath = findShortestPath(graph,possibleStart,possibleEnd)
     drawRoute(graph,shortestPath)
 }
 
@@ -205,7 +240,7 @@ function minWeightNode (weights, visited){
   };
 
 function findShortestPath (graph, startNode, endNode) {
-    let startCoord = graph.getNodeAttribute(startNode)["coordinates"]
+    let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
     let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
     console.log(startCoord)
     console.log(endCoord)
@@ -213,7 +248,8 @@ function findShortestPath (graph, startNode, endNode) {
     let minDistance = turf.length(minLine, {units: 'miles'}); 
     let weights = {};
     weights[endNode] = Infinity;
-    let parents = { endNode: null };
+    let parents = {};
+    parents[endNode] = null;
     for(let i = 0; i < graph.neighbors(startNode).length; i++){
         let child = graph.neighbors(startNode)[i]
         weights[child] = graph.getUndirectedEdgeAttributes(startNode, child)["distance"];
@@ -245,6 +281,9 @@ function findShortestPath (graph, startNode, endNode) {
     visited.push(node);
    node = minWeightNode(weights, visited);
    }
+   console.log("start node " + startNode)
+   console.log("end node" + endNode)
+   console.log("parents " + JSON.stringify(parents, null, 4))
  
    let shortestPath = [endNode];
    let parent = parents[endNode];
@@ -252,6 +291,7 @@ function findShortestPath (graph, startNode, endNode) {
       shortestPath.push(parent);
       parent = parents[parent];
    }
+   console.log(shortestPath);
    shortestPath.reverse();
    return shortestPath;
 
