@@ -105,14 +105,16 @@ function calculateElevation(max, result){
 }
 
 async function fetchAsync (startCoord,endCoord) {
+    resetPaths();
     console.log('start-end')
     console.log(startCoord);
     console.log(endCoord);
     let query = undefined;
+    let bounds = map.current.getBounds()
     if(startCoord[1] < endCoord[1]){
-        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${startCoord[1]},${startCoord[0]},${endCoord[1]},${endCoord[0]});out geom;`
+        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
     } else {
-        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${endCoord[1]},${endCoord[0]},${startCoord[1]},${startCoord[0]});out geom;`
+        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
     }
     let response = await fetch(query);
     let data = await response.json();
@@ -149,6 +151,7 @@ async function getElevation(elements,startCoord,endCoord){
 
   
 function createGraph(elements,startCoord,endCoord,elemElevationDict){
+    
     // Allow for multiple paths of different weights between two nodes
     const graph = new Graph();
     console.log(elemElevationDict)
@@ -158,15 +161,16 @@ function createGraph(elements,startCoord,endCoord,elemElevationDict){
     let minDistanceToStart = Number.MAX_VALUE
     let possibleEnd = undefined
     let minDistanceToEnd = Number.MAX_VALUE
-
-
+    let longestPathSoFarStart = 0;
+    let longestPathSoFarEnd = 0;
+    let z= null;
     //Iterate through every path way
     for(let i = 0; i < elements.length; i++){
         let currElem = elements[i];
         let prevNode = null;
         let prevNodeCoord = null;
         const allC = []
-
+        
         // Iterate through the nodes in each path way
         for(let j = 0; j < currElem.nodes.length;j++){
             let currNode = currElem.nodes[j]
@@ -176,11 +180,13 @@ function createGraph(elements,startCoord,endCoord,elemElevationDict){
             // track start-end pos
             var lengthStart = turf.length(turf.lineString([startCoord, currCoord]), {units: 'miles'});
             var lengthEnd = turf.length(turf.lineString([endCoord, currCoord]), {units: 'miles'});
-            if(lengthStart < minDistanceToStart){
+            if(lengthStart < 0.05 && currElem.nodes.length > longestPathSoFarStart){
+                longestPathSoFarStart = currElem.nodes.length
                 possibleStart = currNode;
                 minDistanceToStart = lengthStart;
             }
-            if(lengthEnd < minDistanceToEnd){
+            if(lengthEnd < 0.05 && currElem.nodes.length > longestPathSoFarEnd){
+                longestPathSoFarEnd = currElem.nodes.length
                 possibleEnd = currNode;
                 minDistanceToEnd = lengthEnd;
             }
@@ -206,9 +212,6 @@ function createGraph(elements,startCoord,endCoord,elemElevationDict){
                 if(elevationDiff < 0) elevationDiff = 0
                 var line = turf.lineString([prevNodeCoord, currCoord]);
                 var length = turf.length(line, {units: 'miles'}); 
-                if(length < 0.001){
-                    continue
-                }
                 if(!graph.hasNode(currNode)){
                     graph.addNode(currNode,{coordinates: currCoord})
                 }
@@ -221,9 +224,38 @@ function createGraph(elements,startCoord,endCoord,elemElevationDict){
                 prevNodeCoord = currCoord;
             }
         }
-        
+        map.current.addSource('route'+i  , {
+            'type': 'geojson',
+            'data': {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+            'type': 'LineString',
+            'coordinates': allC
+            }
+            }
+            });
+        map.current.addLayer({
+                'id': 'route'+i,
+                'type': 'line',
+                'source': 'route'+i,
+                'layout': {
+                'line-join': 'round',
+                'line-cap': 'round'
+                },
+                'paint': {
+                'line-color': '#990',
+                'line-width': 8
+                }
+        });
     }
-
+    console.log(z)
+    const marker1 = new mapboxgl.Marker()
+    .setLngLat(graph.getNodeAttributes(possibleStart)["coordinates"])
+    .addTo(map.current);
+    const marker2 = new mapboxgl.Marker()
+    .setLngLat(graph.getNodeAttributes(possibleEnd)["coordinates"])
+    .addTo(map.current);
     let shortestPath = findShortestPath(graph,possibleStart,possibleEnd)
     drawRoute(graph,shortestPath)
 }
@@ -262,16 +294,15 @@ function findShortestPath (graph, startNode, endNode) {
     while (node) {
        let weight = weights[node];
        let children = graph.neighbors(node); 
- 
        for(let i = 0; i < graph.neighbors(node).length; i++){
           let child = graph.neighbors(node)[i]
           if (String(child) === String(startNode)) {
              continue;
           } else {
              let newdistance = weight + graph.getUndirectedEdgeAttributes(node, child)["distance"];
-             if(newdistance > minDistance + 0.05){
-                continue;
-             } 
+            //  if(newdistance > minDistance){
+            //     continue;
+            //  } 
              if (!weights[child] || weights[child] >= newdistance) {
                 weights[child] = newdistance;
                 parents[child] = node;
@@ -279,7 +310,7 @@ function findShortestPath (graph, startNode, endNode) {
          }
       } 
     visited.push(node);
-   node = minWeightNode(weights, visited);
+    node = minWeightNode(weights, visited);
    }
    console.log("start node " + startNode)
    console.log("end node" + endNode)
@@ -358,9 +389,8 @@ return (
                 <p>To</p>
             </div>
             <div className = "mode-transport" onChange={event => switchTransport(event.target.value)}>
-                <input type="radio" value="bicycle" name="vehicle"/> Bicycle
-                <input type="radio" value="car" defaultChecked name="vehicle"/> Car
-                <input type="radio" value="pedestrian" name="vehicle"/> Walk
+                <input type="radio" value='["highway"]["bicycle"="yes"]' name="vehicle"/> Bicycle
+                <input type="radio" value='["highway"="footway"]' defaultChecked name="vehicle"/> Walk
             </div>
             <div className = "calculate">
                 <button onClick={()=>fetchAsync(coord1.current,coord2.current)}>Calculate Route</button>
