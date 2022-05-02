@@ -1,3 +1,5 @@
 /backend/.idea/
 /backend/target/
 *.bak
+/backend/*.ipynb
+/backend/.ipynb_checkpoints
