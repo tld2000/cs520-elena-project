@@ -118,8 +118,10 @@ function createGraph(elements,startCoord,endCoord){
     const graph = new Graph();
 
     // Keep track of nodes around the inputted start and end locations
-    let possibleStart = []
-    let possibleEnd = []
+    let possibleStart = undefined
+    let minDistanceToStart = Number.MAX_VALUE
+    let possibleEnd = undefined
+    let minDistanceToEnd = Number.MAX_VALUE
 
     //Iterate through every path way
     for(let i = 0; i < elements.length; i++){
@@ -128,32 +130,23 @@ function createGraph(elements,startCoord,endCoord){
         let prevNodeCoord = null;
         const allC = []
 
+
         // Iterate through the nodes in each path way
         for(let j = 0; j < currElem.nodes.length;j++){
             let currNode = currElem.nodes[j]
             let currCoord = [currElem.geometry[j].lon,currElem.geometry[j].lat]
             allC.push(currCoord)
-
-            // Check if node is near the start or end coordinates 
-            // If so, keep track of the NodeID to be used as start and end Node in path finding algorithm
-            if(!graph.hasNode(currNode)){
-                var nearStart = turf.lineString([startCoord, currCoord]);
-                var lengthStart = turf.length(nearStart, {units: 'miles'}); 
-                console.log("length start " + lengthStart)
-                var nearEnd = turf.lineString([endCoord, currCoord]);
-                var lengthEnd = turf.length(nearEnd, {units: 'miles'}); 
-                if(lengthStart < 0.005){
-                    possibleStart.push(currNode)
-                    const marker1 = new mapboxgl.Marker()
-                        .setLngLat(currCoord)
-                        .addTo(map.current);
-                }
-                if(lengthEnd < 0.005){
-                    possibleEnd.push(currNode)
-                    const marker1 = new mapboxgl.Marker()
-                    .setLngLat(currCoord)
-                    .addTo(map.current);
-                }
+            
+            // track start-end pos
+            var lengthStart = turf.length(turf.lineString([startCoord, currCoord]), {units: 'miles'});
+            var lengthEnd = turf.length(turf.lineString([endCoord, currCoord]), {units: 'miles'});
+            if(lengthStart < minDistanceToStart){
+                possibleStart = currNode;
+                minDistanceToStart = lengthStart;
+            }
+            if(lengthEnd < minDistanceToEnd){
+                possibleEnd = currNode;
+                minDistanceToEnd = lengthEnd;
             }
 
             // If it's the first node in the path, just add it to the graph
@@ -190,10 +183,8 @@ function createGraph(elements,startCoord,endCoord){
         }
         
     }
-    console.log("possible start-end")
-    console.log(possibleStart)
-    console.log(possibleEnd)
-    let shortestPath = findShortestPath(graph,possibleStart[0],possibleEnd[0])
+
+    let shortestPath = findShortestPath(graph,possibleStart,possibleEnd)
     drawRoute(graph,shortestPath)
 }
 
@@ -209,7 +200,7 @@ function minWeightNode (weights, visited){
   };
 
 function findShortestPath (graph, startNode, endNode) {
-    let startCoord = graph.getNodeAttribute(startNode)["coordinates"]
+    let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
     let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
     console.log(startCoord)
     console.log(endCoord)
