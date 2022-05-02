@@ -107,6 +107,8 @@ function calculateElevation(max, result){
 async function fetchAsync (startCoord,endCoord) {
     let response = await fetch('https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](42.37327879079956,-72.55155859124777,42.40601313381916,-72.49849306928463);out geom;');
     let data = await response.json();
+    console.log("data body")
+    console.log(data.elements)
     console.log(createGraph(data.elements,startCoord,endCoord))
     return data;
   }
@@ -137,6 +139,7 @@ function createGraph(elements,startCoord,endCoord){
             if(!graph.hasNode(currNode)){
                 var nearStart = turf.lineString([startCoord, currCoord]);
                 var lengthStart = turf.length(nearStart, {units: 'miles'}); 
+                console.log("length start " + lengthStart)
                 var nearEnd = turf.lineString([endCoord, currCoord]);
                 var lengthEnd = turf.length(nearEnd, {units: 'miles'}); 
                 if(lengthStart < 0.005){
@@ -187,6 +190,7 @@ function createGraph(elements,startCoord,endCoord){
         }
         
     }
+    console.log("possible start-end")
     console.log(possibleStart)
     console.log(possibleEnd)
     let shortestPath = findShortestPath(graph,possibleStart[0],possibleEnd[0])
