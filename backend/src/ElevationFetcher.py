@@ -1,16 +1,18 @@
 from flask import Flask, json, request
 from ElevationFetcherHelper import process_queries
 
-companies = [{"id": 1, "name": "Company One"}, {"id": 2, "name": "Company Two"}]
+def run_server():
 
-api = Flask(__name__)
-
-
-
-@api.route('/elevation', methods=['POST', 'GET'])
-def get_companies():
-    elem_dict = process_queries(request.json)
-    return json.dumps({'results':elem_dict})
+    api = Flask(__name__)
+    """
+    Run the Flask server
+    """
+    @api.route('/elevation', methods=['POST', 'GET'])
+    def get_companies():
+        elem_dict = process_queries(request.json)
+        return json.dumps({'results':elem_dict})
+    
+    api.run()
 
 if __name__ == '__main__':
-    api.run() 
+    run_server()
