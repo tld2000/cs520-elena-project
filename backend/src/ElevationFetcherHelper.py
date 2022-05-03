@@ -1,4 +1,4 @@
-import requests
+import requests 
 
 def process_queries(json_data):
     loc_num = sum([len(json_data[n]) for n in json_data])
