@@ -351,6 +351,7 @@ function findPath(graph, startNode, endNode,maxIncrease,maximize){
     parents[endNode] = null;
     for(let i = 0; i < graph.neighbors(startNode).length; i++){
         let child = graph.neighbors(startNode)[i]
+        distance[child] =  graph.getUndirectedEdgeAttributes(startNode, child)['distance'];
         weights[child] = graph.getUndirectedEdgeAttributes(startNode, child)['elevationGain'];
         parents[child] = startNode;
     }
@@ -371,11 +372,9 @@ function findPath(graph, startNode, endNode,maxIncrease,maximize){
              value = value !== 0 ? value : 0.00001;
              let newWeight = weight + value;
              let newDist = distance[node] + graph.getUndirectedEdgeAttributes(node, child)['distance'];
+             console.log(newDist)
              if(newDist > maxIncrease){
-                 continue
-             }
-             if(visitedNode[child] != undefined && visitedNode[child] > 5){
-                 continue
+                newWeight += 1;
              }
              if (!maximize && (!weights[child] || weights[child] >= newWeight)) {
                 weights[child] = newWeight;
