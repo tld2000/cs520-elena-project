@@ -1,4 +1,5 @@
 import requests
+import time
 
 def process_queries(json_data):
     loc_num = sum([len(json_data[n]) for n in json_data])
@@ -25,6 +26,7 @@ def process_queries(json_data):
                 elevations = send_queries(query_coords)
                 elevation_list = elevation_list + elevations
                 query_coords = []
+                time.sleep(1)
 
     for i in range(len(elevation_list)):
         for element_id in json_data:
