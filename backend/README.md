@@ -1,4 +1,4 @@
-# EleNa
+# EleNa backend
 This is a Python Flask backend that serves as middleman for queries to [Open Topo Data](https://www.opentopodata.org/) from the main UI.
 
 ### How to setup (from Terminal):
