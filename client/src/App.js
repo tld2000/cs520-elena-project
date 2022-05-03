@@ -1,14 +1,20 @@
 import React, { useRef, useEffect, useState } from 'react';
+
 import mapboxgl from '!mapbox-gl'; // eslint-disable-line import/no-webpack-loader-syntax
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
-// import tt from '@tomtom-international/web-sdk-maps'
-import tt from '@tomtom-international/web-sdk-services';
+import { BsGeoAlt,BsFillGeoAltFill,BsBicycle } from "react-icons/bs";
+import { MdDirectionsWalk } from "react-icons/md";
+
 import Graph from 'graphology';
-import {DropdownButton, Dropdown} from 'react-bootstrap';
+import {ToggleButtonGroup, ToggleButton,Button,Slider} from '@mui/material'
 import * as turf from '@turf/turf'
+
 mapboxgl.accessToken = 'pk.eyJ1Ijoia2F6dWhhb2thbW90byIsImEiOiJjbDF2NjhmMm8yZjY4M2Ntb3hsOGRibWtkIn0.s0CQAwqbmc-DTF7E9vkm1w';
-const ttAccess = '4Q9JjW8Mo3xisGKPjp4hDZ9KPARGYeTb'
+
+
+
+
 export default function App() {
     const mapContainer = useRef(null);
     const map = useRef(null);
@@ -24,6 +30,23 @@ export default function App() {
     const allMarkers = useRef(null);
     const modeTransport = useState('["highway"="footway"]');
     modeTransport.current = '["highway"="footway"]'
+    
+    const [alignment, setAlignment] = React.useState('["highway"="footway"]');
+    const [elevationAlignment, setElevationAlignment] = React.useState('min');
+    const handleChange = (
+      event,
+      newAlignment,
+    ) => {
+      setAlignment(newAlignment);
+      switchTransport(event.target.value)
+    };
+    const handleElevationChange = (
+        event,
+        newAlignment,
+      ) => {
+        setElevationAlignment(newAlignment);
+        switchTransport(event.target.value)
+      };
 useEffect(() => {
     if (map.current) return; // initialize map only once
     
@@ -79,33 +102,6 @@ function resetPaths(){
     map.current.setStyle('mapbox://styles/mapbox/streets-v11');
 }
 
-function calculateElevation(max, result){
-    const coordinates = result.features[0].geometry.coordinates;
-    let prev = null;
-    for(let i =0; i < result.features.length; i++){
-        let currentSet = result.features[i].geometry
-        let currElevation = 0
-        let minmaxElevation = 0
-        for(let j =0; j < currentSet.coordinates.length; j ++){
-            if(prev!=null) {
-                let prevElevation = map.current.queryTerrainElevation(prev);
-                let currElevation = map.current.queryTerrainElevation(currentSet.coordinates[i])
-                let elevationDiff = currElevation - prevElevation;
-                currElevation += elevationDiff;
-            }
-            prev = currentSet.coordinates[j];
-        }
-        if(max && currElevation > minmaxElevation){
-            minmaxElevation = currElevation
-            coordinates = result.features[i].coordinates;
-        }
-        if(!max && currElevation <= minmaxElevation){
-            minmaxElevation = currElevation
-            coordinates = result.features[i].coordinates;
-        }
-    }
-    return coordinates;
-}
 
 async function fetchAsync (startCoord,endCoord) {
     resetPaths();
@@ -244,7 +240,7 @@ function createGraph(elements,startCoord,endCoord,elemElevationDict){
                 'line-cap': 'round'
                 },
                 'paint': {
-                'line-color': '#990',
+                'line-color': '#999',
                 'line-width': 8
                 }
         });
@@ -377,17 +373,54 @@ return (
         <div ref={mapContainer} className="map-container" />
         <div className = "input-container">
             <div ref = {geocoderContainer} className = "geocoder-container">
-                <p>From</p>
+                <div className = "icon">
+                    <BsGeoAlt size={30} />
+                </div>   
             </div>
             <div ref = {geocoderContainer2} className = "geocoder-container-2">
-                <p>To</p>
+                <div className = "icon">
+                    <BsFillGeoAltFill color={"#757ce8"} size={30}/>
+                </div> 
             </div>
-            <div className = "mode-transport" onChange={event => switchTransport(event.target.value)}>
-                <input type="radio" value='["highway"]["bicycle"="yes"]' name="vehicle"/> Bicycle
-                <input type="radio" value='["highway"="footway"]' defaultChecked name="vehicle"/> Walk
+            <div className = "mode-transport">
+                <div className = "elevation-mode">
+                    <ToggleButtonGroup
+                        value={elevationAlignment}
+                        exclusive
+                        onChange={handleElevationChange}
+                        size="large"
+                        color="primary"
+                    >
+                        <ToggleButton value='min'>Min</ToggleButton>
+                        <ToggleButton value='max' >Max</ToggleButton>
+                    </ToggleButtonGroup>
+                </div>
+                <div className = "vehicle">
+                    <ToggleButtonGroup
+                        value={alignment}
+                        exclusive
+                        onChange={handleChange}
+                        color="primary"
+                        size="large"
+                    >
+                        <ToggleButton value='["highway"="footway"]' ><MdDirectionsWalk size={28}/></ToggleButton>
+                        <ToggleButton value='["highway"]["bicycle"="yes"]'><BsBicycle size={28}/></ToggleButton>    
+                    </ToggleButtonGroup>
+                </div>
+            <div className = "slider">
+                <Slider
+                    aria-label="Temperature"
+                    defaultValue={30}
+                    valueLabelDisplay="auto"
+                    step={10}
+                    marks
+                    min={10}
+                    max={110}
+                />
+            </div>
             </div>
             <div className = "calculate">
-                <button onClick={()=>fetchAsync(coord1.current,coord2.current)}>Calculate Route</button>
+                <Button variant="contained" size = "large" onClick={()=>fetchAsync(coord1.current,coord2.current)}>Calculate Route</Button>
             </div>
         </div>
 
