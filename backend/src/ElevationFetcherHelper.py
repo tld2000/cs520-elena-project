@@ -33,6 +33,7 @@ def process_queries(json_data):
                 time.sleep(1)
                 elevation_list = elevation_list + elevations
                 query_coords = []
+                time.sleep(1)
 
     for i in range(len(elevation_list)):
         for element_id in json_data:
