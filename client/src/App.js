@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 
-import mapboxgl from '!mapbox-gl'; // eslint-disable-line import/no-webpack-loader-syntax
+import mapboxgl from 'mapbox-gl'; // eslint-disable-line import/no-webpack-loader-syntax
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { BsGeoAlt,BsFillGeoAltFill,BsBicycle } from "react-icons/bs";
@@ -9,6 +9,8 @@ import { MdDirectionsWalk } from "react-icons/md";
 import Graph from 'graphology';
 import {ToggleButtonGroup, ToggleButton,Button,Slider} from '@mui/material'
 import * as turf from '@turf/turf'
+
+import applogo from './EleNaIcon.png';
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoia2F6dWhhb2thbW90byIsImEiOiJjbDF2NjhmMm8yZjY4M2Ntb3hsOGRibWtkIn0.s0CQAwqbmc-DTF7E9vkm1w';
 
@@ -525,7 +527,6 @@ return (
     <div className="sidebar">
     Longitude: {lng} | Latitude: {lat} | Zoom: {zoom}
     </div>
-    
     <div className = "overlap">
         <div ref={mapContainer} className="map-container" />
         <div className = "input-container">
@@ -586,6 +587,9 @@ return (
                     <p className = "data-header">Total Distance: {totalDist}</p>
                     <p className = "data-header">Total Elevation Gain: {totalElevationGain}</p>
                 </div>
+            </div>
+            <div className = "logo">
+                <img src={applogo} alt="EleNa logo" height={155} width={350}/>
             </div>
         </div>
 
