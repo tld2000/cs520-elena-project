@@ -17,7 +17,6 @@ import * as turf from '@turf/turf'
  * all coordinates in the graph]
  */
 export function createGraph(elements,startCoord,endCoord,elemElevationDict){
-    console.log(elemElevationDict)
     // Allow for multiple paths of different weights between two nodes
     const graph = new Graph();
 

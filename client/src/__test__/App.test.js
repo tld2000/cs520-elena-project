@@ -1,8 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import App, {drawGraph} from '../App'
-import '../Controller'
-import '../Model'
+import App from '../App'
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
