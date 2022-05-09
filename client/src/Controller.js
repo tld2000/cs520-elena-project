@@ -17,10 +17,14 @@ export async function fetchAsync (startCoord,endCoord) {
         query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${minCoord[1]},${minCoord[0]},${maxCoord[1]},${maxCoord[0]});out geom;`
     }
     // query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way`+`${modeTransport.current}`+`(${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
-    let response = await fetch(query);
-    let data = await response.json();
-    let result = await getElevation(data.elements,startCoord,endCoord)
-    return [data.elements,result];
+    try{
+        let response = await fetch(query);
+        let data = await response.json();
+        let result = await getElevation(data.elements,startCoord,endCoord)
+        return [data.elements,result];
+    } catch(e) {
+        return [null, null];
+    }
   }
 
 /**
