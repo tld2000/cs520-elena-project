@@ -1,8 +1,9 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
-import App from '../App'
-import {fetchAsync, getElevation} from '../Controller'
+import '../App'
+import '../Controller'
+import '../Model'
 
 test('getElevation returns elevations', () => {
     const startCoord = [-72.524169, 42.386647];
