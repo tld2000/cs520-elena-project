@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 
-import mapboxgl from 'mapbox-gl'; // eslint-disable-line import/no-webpack-loader-syntax
+import mapboxgl from 'mapbox-gl'; //eslint-disable-line import/no-webpack-loader-syntax
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { BsGeoAlt,BsFillGeoAltFill,BsBicycle } from "react-icons/bs";
@@ -8,10 +8,8 @@ import { MdDirectionsWalk } from "react-icons/md";
 
 import Graph from 'graphology';
 import {ToggleButtonGroup, ToggleButton,Button,Slider} from '@mui/material'
-import * as turf from '@turf/turf'
-
-import applogo from './EleNaIcon.png';
-
+import { createGraph } from './Model';
+import {fetchAsync, findShortestPath,findPath} from './Controller'
 mapboxgl.accessToken = 'pk.eyJ1Ijoia2F6dWhhb2thbW90byIsImEiOiJjbDF2NjhmMm8yZjY4M2Ntb3hsOGRibWtkIn0.s0CQAwqbmc-DTF7E9vkm1w';
 
 
@@ -59,9 +57,10 @@ export default function App() {
             boolMax.current = false;
         }
       };
-      const setPercentIncrease = (event,newPercent)=>{
-        percentIncrease(newPercent)
-      }
+    const setPercentIncrease = (event,newPercent)=>{
+    percentIncrease(newPercent)
+    }
+
 useEffect(() => {
     if (map.current) return; // initialize map only once
     modeTransport.current = '["highway"="footway"]'
@@ -115,158 +114,85 @@ useEffect(() => {
     });
 });
 
+/**
+ * Reset map to remove all drawn paths and markers
+ */
 function resetPaths(){
     map.current.setStyle('mapbox://styles/mapbox/streets-v11');
-}
-
-
-async function fetchAsync (startCoord,endCoord) {
-    resetPaths();
     if (currentMarkers.current!==null) {
         for (var i = currentMarkers.current.length - 1; i >= 0; i--) {
           currentMarkers.current[i].remove();
         }
     }
-    console.log('start-end')
-    console.log(startCoord);
-    console.log(endCoord);
-    let query = undefined;
-    let bounds = map.current.getBounds()
-    console.log(modeTransport.current)
-
-    // Allow some leeway around coordinates to make path
-    if(startCoord[1] < endCoord[1]){
-        let minCoord = [startCoord[0]-0.003,startCoord[1]-0.003]
-        let maxCoord = [endCoord[0]+0.003,endCoord[1]+0.003]
-        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${minCoord[1]},${minCoord[0]},${maxCoord[1]},${maxCoord[0]});out geom;`
-    } else {
-        let minCoord = [endCoord[0]-0.003,endCoord[1]-0.003]
-        let maxCoord = [startCoord[0]+0.003,startCoord[1]+0.003]
-        query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${minCoord[1]},${minCoord[0]},${maxCoord[1]},${maxCoord[0]});out geom;`
-    }
-    // query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way`+`${modeTransport.current}`+`(${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
-    let response = await fetch(query);
-    let data = await response.json();
-    let x = await getElevation(data.elements,startCoord,endCoord)
-    console.log("X " + x)
-    return data;
-  }
-
-
-async function getElevation(elements,startCoord,endCoord){
-    // query elevation for all nodes
-    var elemDict = {}
-    for(let i = 0; i < elements.length; i++){
-        let currElement = elements[i]
-        elemDict[currElement['id']] = {}
-        for(let j = 0; j < currElement.nodes.length;j++){
-            elemDict[currElement['id']][currElement.nodes[j]] = [currElement.geometry[j].lon,currElement.geometry[j].lat]
-        }
-    }
-    let jsonElem = JSON.stringify(elemDict)
-    let response = await fetch('http://localhost:5000/elevation', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonElem
-      }).then(async function(result){ 
-          let temp = result.json()
-          console.log(temp)
-          return temp
-        }).then(result => createGraph(elements, startCoord, endCoord, result['results']))
 }
 
-  
-function createGraph(elements,startCoord,endCoord,elemElevationDict){
+/**
+ * Given a start and end coordinate, this function finds and draws the path 
+ * @param  {Number} startCoord - The start location coordinate
+ * @param  {Number} endCoord - The end location coordinate
+ */
+async function drawGraph(startCoord,endCoord){
+    // Remove all current markings
+    resetPaths();
     
-    // Allow for multiple paths of different weights between two nodes
-    const graph = new Graph();
+    // Fetch data 
+    let [elements, elemElevationDict] = await fetchAsync(startCoord,endCoord)
+    if(elements == null || elemElevationDict == null) return
 
-    // Keep track of nodes around the inputted start and end locations
-    let possibleStart = undefined
-    let minDistanceToStart = Number.MAX_VALUE
-    let possibleEnd = undefined
-    let minDistanceToEnd = Number.MAX_VALUE
-    let longestPathSoFarStart = 0;
-    let longestPathSoFarEnd = 0;
-    let z= null;
-    //Iterate through every path way
-    for(let i = 0; i < elements.length; i++){
-        let currElem = elements[i];
-        let prevNode = null;
-        let prevNodeCoord = null;
-        const allC = []
-        
-        // Iterate through the nodes in each path way
-        for(let j = 0; j < currElem.nodes.length;j++){
-            let currNode = currElem.nodes[j]
-            let currCoord = [currElem.geometry[j].lon,currElem.geometry[j].lat]
-            allC.push(currCoord)
-            
-            // track start-end pos
-            var lengthStart = turf.length(turf.lineString([startCoord, currCoord]), {units: 'miles'});
-            var lengthEnd = turf.length(turf.lineString([endCoord, currCoord]), {units: 'miles'});
-            if(lengthStart < 0.03 && currElem.nodes.length > longestPathSoFarStart){
-                longestPathSoFarStart = currElem.nodes.length
-                possibleStart = currNode;
-                minDistanceToStart = lengthStart;
-            }
-            if(lengthEnd < 0.03 && currElem.nodes.length > longestPathSoFarEnd){
-                longestPathSoFarEnd = currElem.nodes.length
-                possibleEnd = currNode;
-                minDistanceToEnd = lengthEnd;
-            }
+    // Create data model
+    const [possibleStart,possibleEnd,graph, allC] = createGraph(elements,startCoord,endCoord,elemElevationDict);
+    let path;
 
-            // If it's the first node in the path, just add it to the graph
-            if(j == 0){
-                prevNode = currNode
-                prevNodeCoord = currCoord
-                if(!graph.hasNode(currNode)){
-                    graph.addNode(currNode,{coordinates: currCoord})
-                }
-            }
+    //Finding paths
+    try{
+        let [shortPath,totalDistance,totalElevationGain] = findShortestPath(graph,possibleStart,possibleEnd)
+        path = shortPath;
 
-            // Every successor node draws an edge between the previous node and the current one
-            else{
-                // let prevElevation = map.current.queryTerrainElevation(prevNodeCoord);
-                let prevElevation = elemElevationDict[currElem['id']][prevNode];
-                // let currElevation = map.current.queryTerrainElevation(currCoord)
-                let currElevation = elemElevationDict[currElem['id']][currNode];
+        // set shortest path value to total distance of the shortest path
+        setShortest(totalDistance)
+        let maxDistIncrease = totalDistance + totalDistance * (percent / 100)
+        if(maxDistIncrease == totalDistance){
 
-                let elevationDiff = currElevation - prevElevation;
-                // console.log('elediff' + elevationDiff)
-                if(elevationDiff < 0) elevationDiff = 0
-                var line = turf.lineString([prevNodeCoord, currCoord]);
-                var length = turf.length(line, {units: 'miles'}); 
-                if(!graph.hasNode(currNode)){
-                    graph.addNode(currNode,{coordinates: currCoord})
-                }
-                if(!graph.hasEdge(prevNode,currNode)){
-                    // Keep track of elevation gain, and distance between two nodes to act as weight
-                    // for the path finding algorithm
-                    graph.addUndirectedEdge(prevNode,currNode,{elevationGain: elevationDiff,distance:length})
-                }
-                prevNode = currNode;
-                prevNodeCoord = currCoord;
-            }
+            // set actual distance to the shortest path, if max increase is 0 %
+            setDist(totalDistance)
+            setElev(totalElevationGain)
         }
-        map.current.addSource('route'+i  , {
+        //TODO: FIGURE OUT MAX PATH
+        // else if(boolMax.current == true){
+        //     let maxPath = findPath(graph,possibleStart,possibleEnd,maxDistIncrease,true)
+        //     drawRoute(graph,maxPath)
+        // }
+        else{
+            let [minPath,totDis,totEl] = findPath(graph,possibleStart,possibleEnd,maxDistIncrease,false)
+            path = minPath
+            // set actual distance and elevation to the new distance
+            setDist(totDis)
+            setElev(totEl)
+        }
+        
+     }catch(err){
+         console.log(err)
+         console.log("no route found")
+     }
+
+    //Draw out all possible paths in gray using mapbox API
+    console.log(allC)
+    for(let i =0; i < allC.length;i++){
+        map.current.addSource('route' +i , {
             'type': 'geojson',
             'data': {
             'type': 'Feature',
             'properties': {},
             'geometry': {
             'type': 'LineString',
-            'coordinates': allC
+            'coordinates': allC[i]
             }
             }
             });
         map.current.addLayer({
-                'id': 'route'+i,
+                'id': 'route' + i,
                 'type': 'line',
-                'source': 'route'+i,
+                'source': 'route' +i,
                 'layout': {
                 'line-join': 'round',
                 'line-cap': 'round'
@@ -277,220 +203,37 @@ function createGraph(elements,startCoord,endCoord,elemElevationDict){
                 }
         });
     }
-     try{
-        const marker1 = new mapboxgl.Marker()
-        .setLngLat(graph.getNodeAttributes(possibleStart)["coordinates"])
-        .addTo(map.current);
-        const marker2 = new mapboxgl.Marker()
-        .setLngLat(graph.getNodeAttributes(possibleEnd)["coordinates"])
-        .addTo(map.current);
-        currentMarkers.current.push(marker1)
-        currentMarkers.current.push(marker2)
-        let [shortestPath,totalDistance,totalElevationGain] = findShortestPath(graph,possibleStart,possibleEnd)
-        let maxDistIncrease = totalDistance + totalDistance * (percent / 100)
-        if(maxDistIncrease == totalDistance){
-            drawRoute(graph,shortestPath)
-            setDist(totalDistance)
-            setElev(totalElevationGain)
-        }
-        // else if(boolMax.current == true){
-        //     let maxPath = findPath(graph,possibleStart,possibleEnd,maxDistIncrease,true)
-        //     drawRoute(graph,maxPath)
-        // }
-        else{
-            let minPath = findPath(graph,possibleStart,possibleEnd,maxDistIncrease,false)
-            drawRoute(graph,minPath)
-        }
-        
-     }catch(err){
-         console.log(err)
-         console.log("no route found")
-     }
+
+    console.log(path)
+
+    // Draw out final route in green
+    drawRoute(graph,path); 
+    console.log(graph)
+
+    //Markers for closest starting location node
+    const marker1 = new mapboxgl.Marker()
+    .setLngLat(graph.getNodeAttributes(possibleStart)["coordinates"])
+    .addTo(map.current);
+    const marker2 = new mapboxgl.Marker()
+
+    //Marker for closest ending location node
+    .setLngLat(graph.getNodeAttributes(possibleEnd)["coordinates"])
+    .addTo(map.current);
+    currentMarkers.current.push(marker1)
+    currentMarkers.current.push(marker2)
 
 }
-
-function minWeightNode (weights, visited){
-     
-      let shortest = null;
-      for (let node in weights) {
-          let currShortest = shortest === null || weights[node] < weights[shortest];
-          if (currShortest && !visited.includes(node)) {
-              shortest = node;
-          }
-      }
-      return shortest;
-  };
-
-function maxWeightNode (weights, visited){
-     
-    let max = null;
-    for (let node in weights) {
-        let currMax = max === null || weights[node] > weights[max];
-        if (currMax && !visited.includes(node)) {
-            max = node;
-        }
-    }
-    return max;
-};
-function findPath(graph, startNode, endNode,maxIncrease,maximize){
-
-    let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
-    let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
-    console.log(startCoord)
-    console.log(endCoord)
-    let visitedNode ={}
-    let weights = {};
-    let distance = {};
-    if(maximize == true){
-        distance[endNode] = 0;
-        weights[endNode] = 0;
-    }
-    else{
-        distance[endNode] = Infinity;
-        weights[endNode] = Infinity;
-    }
-    let parents = {};
-    parents[endNode] = null;
-    for(let i = 0; i < graph.neighbors(startNode).length; i++){
-        let child = graph.neighbors(startNode)[i]
-        distance[child] =  graph.getUndirectedEdgeAttributes(startNode, child)['distance'];
-        weights[child] = graph.getUndirectedEdgeAttributes(startNode, child)['elevationGain'];
-        parents[child] = startNode;
-    }
-
-    let visited = [];
-    let node = null;
-    node = maximize ? maxWeightNode(weights, visited) : minWeightNode(weights, visited);
- 
-    while (node) {
-       let weight = weights[node];
-       let children = graph.neighbors(node); 
-       for(let i = 0; i < children.length; i++){
-          let child = children[i]
-          if (String(child) === String(startNode)) {
-             continue;
-          } else {
-             let value = graph.getUndirectedEdgeAttributes(node, child)['elevationGain']
-             value = value !== 0 ? value : 0.00001;
-             let newWeight = weight + value;
-             let newDist = distance[node] + graph.getUndirectedEdgeAttributes(node, child)['distance'];
-             console.log(newDist)
-             if(newDist > maxIncrease){
-                newWeight += 1;
-             }
-             if (!maximize && (!weights[child] || weights[child] >= newWeight)) {
-                weights[child] = newWeight;
-                distance[child] = newDist;
-                parents[child] = node;
-            } 
-            if (maximize && (!weights[child] || weights[child] <= newWeight)) {
-
-                weights[child] = newWeight;
-                distance[child]= newDist;
-                parents[child] = node;
-            } 
-         }
-      } 
-    if(visitedNode[node] == undefined) visitedNode[node] = 0
-    visitedNode[node] += 1
-    visited.push(node);
-    node = maximize ? maxWeightNode(weights, visited) : minWeightNode(weights, visited);
-   }
-   console.log("start node " + startNode)
-   console.log("end node" + endNode)
-   console.log("parents " + JSON.stringify(parents, null, 4))
-   let totalElevationGain = 0
-   let totalDistance = 0
-   let shortestPath = [endNode];
-   let parent = parents[endNode];
-   while (parent) {
-      shortestPath.push(parent);
-      if(parents[parent]){
-        totalElevationGain += graph.getUndirectedEdgeAttributes(parent,parents[parent])["elevationGain"]
-        totalDistance += graph.getUndirectedEdgeAttributes(parent,parents[parent])["distance"]
-      }
-      parent = parents[parent];
-   }
-   console.log(shortestPath);
-   console.log("total elevation gain " + totalElevationGain)
-   console.log("total distance " + totalDistance)
-   shortestPath.reverse();
-   setDist(totalDistance)
-   setElev(totalElevationGain)
-   return shortestPath;
-}
-
-function findShortestPath (graph, startNode, endNode,attribute) {
-    attribute = typeof attribute !== 'undefined' ? attribute : 'distance';
-    let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
-    let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
-    console.log(startCoord)
-    console.log(endCoord)
-
-    let weights = {};
-    weights[endNode] = Infinity;
-    let parents = {};
-    parents[endNode] = null;
-    for(let i = 0; i < graph.neighbors(startNode).length; i++){
-        let child = graph.neighbors(startNode)[i]
-        weights[child] = graph.getUndirectedEdgeAttributes(startNode, child)[attribute];
-        parents[child] = startNode;
-    }
-
-    let visited = [];
-    let node = minWeightNode(weights, visited);
- 
-    while (node) {
-       let weight = weights[node];
-       let children = graph.neighbors(node); 
-       for(let i = 0; i < graph.neighbors(node).length; i++){
-          let child = graph.neighbors(node)[i]
-          if (String(child) === String(startNode)) {
-             continue;
-          } else {
-             let value = graph.getUndirectedEdgeAttributes(node, child)[attribute]
-             value = value !== 0 ? value : 0.0001;
-             let newDistance = weight + graph.getUndirectedEdgeAttributes(node, child)[attribute];
-             if (!weights[child] || weights[child] >= newDistance) {
-                weights[child] = newDistance;
-                parents[child] = node;
-            } 
-         }
-      } 
-    visited.push(node);
-    node = minWeightNode(weights, visited);
-   }
-   console.log("start node " + startNode)
-   console.log("end node" + endNode)
-   console.log("parents " + JSON.stringify(parents, null, 4))
-   let totalElevationGain = 0
-   let totalDistance = 0
-   let shortestPath = [endNode];
-   let parent = parents[endNode];
-   while (parent) {
-      shortestPath.push(parent);
-      if(parents[parent]){
-        totalElevationGain += graph.getUndirectedEdgeAttributes(parent,parents[parent])["elevationGain"]
-        totalDistance += graph.getUndirectedEdgeAttributes(parent,parents[parent])["distance"]
-      }
-      parent = parents[parent];
-   }
-   console.log(shortestPath);
-   console.log("total elevation gain " + totalElevationGain)
-   console.log("total distance " + totalDistance)
-   shortestPath.reverse();
-   setShortest(totalDistance)
-
-   return [shortestPath,totalDistance,totalElevationGain];
-
-};
-
+/**
+ * Draw a route given an array of node IDs
+ * @param  {Graph} graph The full path graph
+ * @param  {Array.<Number>} nodeIds - The array of nodeIDs that make up the path
+ */
 async function drawRoute(graph, nodeIds){
     let allCoords = []
     for(let i = 0; i < nodeIds.length;i++){
         allCoords.push(graph.getNodeAttribute(nodeIds[i],"coordinates"));
     }
-        map.current.addSource('route', {
+        map.current.addSource('route 1', {
         'type': 'geojson',
         'data': {
         'type': 'Feature',
@@ -502,9 +245,9 @@ async function drawRoute(graph, nodeIds){
         }
         });
     map.current.addLayer({
-            'id': 'route',
+            'id': 'route 1',
             'type': 'line',
-            'source': 'route',
+            'source': 'route 1',
             'layout': {
             'line-join': 'round',
             'line-cap': 'round'
@@ -516,6 +259,10 @@ async function drawRoute(graph, nodeIds){
     });
 }
 
+/**
+ * Switch the type of transport used in the route 
+ * @param  {String} vehicle Value for query string to switch mode of transport, to be passed into Overpass API 
+ */
 async function switchTransport(vehicle){
     modeTransport.current = vehicle;
     console.log(modeTransport.current)
@@ -526,6 +273,7 @@ return (
     <div className="sidebar">
     Longitude: {lng} | Latitude: {lat} | Zoom: {zoom}
     </div>
+    
     <div className = "overlap">
         <div ref={mapContainer} className="map-container" />
         <div className = "input-container">
@@ -579,16 +327,13 @@ return (
             </div>
             </div>
             <div className = "calculate">
-                <Button variant="contained" size = "large" onClick={()=>fetchAsync(coord1.current,coord2.current)}>Calculate Route</Button>
+                <Button variant="contained" size = "large" onClick={async ()=>await drawGraph(coord1.current,coord2.current)}>Calculate Route</Button>
                 <div className = "data">
                 <header className = "data-header">Data in miles:</header>
                     <p className = "data-header">Shortest Distance: {shortestDist}</p>
                     <p className = "data-header">Total Distance: {totalDist}</p>
                     <p className = "data-header">Total Elevation Gain: {totalElevationGain}</p>
                 </div>
-            </div>
-            <div className = "logo">
-                <img src={applogo} alt="EleNa logo" height={155} width={350}/>
             </div>
         </div>
 
