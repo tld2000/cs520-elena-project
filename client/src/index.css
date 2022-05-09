@@ -13,8 +13,8 @@
 }
 .geocoder-container{
     position: absolute;
-    top: 3vh;
-    left: 12vh;
+    top: 4vh;
+    left: 6vh;
     height:15vh;
     width: 20%;
     z-index: 3;
@@ -23,8 +23,8 @@
 .geocoder-container-2{
     position: absolute;
     top:12vh;
-    left: 12vh;
-    height:15vh;
+    left: 6vh;
+    height:10vh;
     width: 20%;
     z-index: 2;
     padding: 10px 10px 0px 10px;
@@ -32,9 +32,9 @@
 }
 
 .calculate{
-    left: 29.5%;
+    left: 20%;
     position: absolute;
-    top: 45vh;
+    top: 50vh;
     /* left: 10%; */
     height:5vh;
     width: 100%;
@@ -45,10 +45,10 @@
 .input-container{
     position: absolute;
     top: 0;
-    left: 0px;
+    left: 10px;
     background-color: lightgray;
     width: 45vh;
-    border-radius: 0px;
+    border-radius: 20px;
     height:100%;
 }
 
@@ -103,14 +103,9 @@
     text-align: center;
     width: 90%;
 }
-.logo{
-    position: absolute;
-    top: 80vh;
-    left: 6vh;
-}
 .data{
     background-color: rgba(255, 255, 255, 0.5);
-    margin-left:-16%;
+    margin-left:-10%;
     width: 70%;
     margin-top:6vh;
     padding: 10px;
