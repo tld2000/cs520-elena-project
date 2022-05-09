@@ -103,6 +103,15 @@
     text-align: center;
     width: 90%;
 }
+.switch{
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    margin-top:46vh;
+    position:absolute;
+    left:5%;
+    text-align: center;
+    width: 90%;
+
+}
 .data{
     background-color: rgba(255, 255, 255, 0.5);
     margin-left:-10%;

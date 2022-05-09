@@ -7,7 +7,7 @@ import { BsGeoAlt,BsFillGeoAltFill,BsBicycle } from "react-icons/bs";
 import { MdDirectionsWalk } from "react-icons/md";
 
 import Graph from 'graphology';
-import {ToggleButtonGroup, ToggleButton,Button,Slider} from '@mui/material'
+import {ToggleButtonGroup, ToggleButton,Button,Slider,Switch,FormControlLabel} from '@mui/material'
 import { createGraph } from './Model';
 import {fetchAsync, findShortestPath,findPath} from './Controller'
 mapboxgl.accessToken = 'pk.eyJ1Ijoia2F6dWhhb2thbW90byIsImEiOiJjbDF2NjhmMm8yZjY4M2Ntb3hsOGRibWtkIn0.s0CQAwqbmc-DTF7E9vkm1w';
@@ -27,7 +27,8 @@ export default function App() {
     const geocoderContainer2 = useRef(null);
     const coord1 = useRef(null);
     const coord2 = useRef(null);
-    const allMarkers = useRef(null);
+    
+
     const modeTransport = useRef(null);
     const currentMarkers = useRef(null)
     const boolMax = useRef(null)
@@ -37,6 +38,8 @@ export default function App() {
     const [alignment, setAlignment] = useState('["highway"="footway"]');
     const [elevationAlignment, setElevationAlignment] = useState('min');
     const [percent, percentIncrease] = useState('0')
+    const [seeElevation, setElevationShow] = useState(false);
+
     const handleChange = (
       event,
       newAlignment,
@@ -58,11 +61,16 @@ export default function App() {
         }
       };
     const setPercentIncrease = (event,newPercent)=>{
-    percentIncrease(newPercent)
+        percentIncrease(newPercent)
+    }
+    const elevationSwitch = (event)=>{
+        setElevationShow(!seeElevation)
+        console.log(seeElevation)
     }
 
 useEffect(() => {
     if (map.current) return; // initialize map only once
+
     modeTransport.current = '["highway"="footway"]'
     boolMax.current = 'false'
     currentMarkers.current = []
@@ -91,14 +99,15 @@ useEffect(() => {
     
     geocoder.current.on('result', function(results) {
         coord1.current = results.result.center;
-        console.log(coord1.current)
+        // console.log(coord1.current)
         
     })
     geocoder2.current.on('result', async function(results) {
         coord2.current = results.result.center;
-        console.log(coord2.current)
+        // console.log(coord2.current)
         map.current.fitBounds([coord1.current,coord2.current], {padding: {top: 150, bottom:150, left: 15, right: 15}})
-        console.log(map.current.getBounds());
+        // console.log(map.current.getBounds());
+        
     })
 
  
@@ -107,7 +116,9 @@ useEffect(() => {
 
 useEffect(() => {
     if (!map.current) return; // wait for map to initialize
+    
     map.current.on('move', () => {
+
     setLng(map.current.getCenter().lng.toFixed(4));
     setLat(map.current.getCenter().lat.toFixed(4));
     setZoom(map.current.getZoom().toFixed(2));
@@ -132,22 +143,50 @@ function resetPaths(){
  * @param  {Number} endCoord - The end location coordinate
  */
 async function drawGraph(startCoord,endCoord){
+ 
     // Remove all current markings
     resetPaths();
     
     // Fetch data 
     let [elements, elemElevationDict] = await fetchAsync(startCoord,endCoord)
+    
+    
     if(elements == null || elemElevationDict == null) return
 
+    // console.log(elemElevationDict)
+
+
     // Create data model
-    const [possibleStart,possibleEnd,graph, allC] = createGraph(elements,startCoord,endCoord,elemElevationDict);
+    const [possibleStart,possibleEnd,graph, allC,elevations,maxElevation,minElevation] = createGraph(elements,startCoord,endCoord,elemElevationDict);
+    console.log(seeElevation)
+    if(seeElevation){
+        for(let elev in elevations){
+            map.current.addSource("polygon" + elev, createGeoJSONCircle(graph.getNodeAttributes(elev)["coordinates"], 0.03));
+            let normalized = (elevations[elev] - minElevation )/ (maxElevation - minElevation)
+
+            // the more red = the higher the elevation
+            map.current.addLayer({
+                "id": "polygon" + elev,
+                "type": "fill",
+                "source": "polygon" + elev,
+                "layout": {},
+                "paint": {
+                    "fill-color": `rgba(${normalized*256},${256 - normalized * 150}, ${256 - normalized * 256},0.8)`,
+                    "fill-opacity": 0.6
+                }
+            });
+    
+        }
+    }
+
+    
     let path;
 
     //Finding paths
     try{
-        let [shortPath,totalDistance,totalElevationGain] = findShortestPath(graph,possibleStart,possibleEnd)
+        let [shortPath,totalDistance,totalElevationGain] = findShortestPath(graph,possibleStart,possibleEnd,"distance")
         path = shortPath;
-
+        console.log(percent)
         // set shortest path value to total distance of the shortest path
         setShortest(totalDistance)
         let maxDistIncrease = totalDistance + totalDistance * (percent / 100)
@@ -157,7 +196,6 @@ async function drawGraph(startCoord,endCoord){
             setDist(totalDistance)
             setElev(totalElevationGain)
         }
-        // TODO: FIGURE OUT MAX PATH
         else if(boolMax.current == true){
             let [maxPath,totDis,totEl]= findPath(graph,possibleStart,possibleEnd,maxDistIncrease,true)
             path = maxPath
@@ -207,11 +245,11 @@ async function drawGraph(startCoord,endCoord){
         });
     }
 
-    console.log(path)
+    // console.log(path)
 
     // Draw out final route in green
     drawRoute(graph,path); 
-    console.log(graph)
+    // console.log(graph)
 
     //Markers for closest starting location node
     const marker1 = new mapboxgl.Marker()
@@ -226,14 +264,18 @@ async function drawGraph(startCoord,endCoord){
     currentMarkers.current.push(marker2)
 
 }
+
 /**
  * Draw a route given an array of node IDs
  * @param  {Graph} graph The full path graph
  * @param  {Array.<Number>} nodeIds - The array of nodeIDs that make up the path
  */
 async function drawRoute(graph, nodeIds){
+    if(graph == undefined || nodeIds == undefined){
+        return;
+    }
     let allCoords = []
-    console.log(nodeIds)
+    // console.log(nodeIds)
     for(let i = 0; i < nodeIds.length;i++){
         // console.log(nodeIds[i])
         if(graph.hasNode(nodeIds[i])){
@@ -266,6 +308,46 @@ async function drawRoute(graph, nodeIds){
             }
     });
 }
+
+var createGeoJSONCircle = function(center, radiusInKm, points) {
+    // console.log(center)
+    if(!points) points = 64;
+
+    var coords = {
+        latitude: center[1],
+        longitude: center[0]
+    };
+
+    var km = radiusInKm;
+
+    var ret = [];
+    var distanceX = km/(111.320*Math.cos(coords.latitude*Math.PI/180));
+    var distanceY = km/110.574;
+
+    var theta, x, y;
+    for(var i=0; i<points; i++) {
+        theta = (i/points)*(2*Math.PI);
+        x = distanceX*Math.cos(theta);
+        y = distanceY*Math.sin(theta);
+
+        ret.push([coords.longitude+x, coords.latitude+y]);
+    }
+    ret.push(ret[0]);
+
+    return {
+        "type": "geojson",
+        "data": {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [ret]
+                }
+            }]
+        }
+    };
+};
 
 /**
  * Switch the type of transport used in the route 
@@ -327,14 +409,18 @@ return (
                     defaultValue={0}
                     valueLabelDisplay="auto"
                     step={10}
-                    marks ={[10,20,30,40,50,60,70,80]}
+                    marks={true}
                     min={0}
                     max={100}
                     onChange={setPercentIncrease}
                 />
             </div>
             </div>
+            <div className ="switch">
+                <FormControlLabel control={<Switch onChange={elevationSwitch}/>} label="See Elevation Gain" />
+            </div>
             <div className = "calculate">
+                
                 <Button variant="contained" size = "large" onClick={async ()=>await drawGraph(coord1.current,coord2.current)}>Calculate Route</Button>
                 <div className = "data">
                 <header className = "data-header">Data in miles:</header>

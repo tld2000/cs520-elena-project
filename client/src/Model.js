@@ -17,8 +17,10 @@ export function createGraph(elements,startCoord,endCoord,elemElevationDict){
     let minDistanceToEnd = Number.MAX_VALUE
     let longestPathSoFarStart = 0;
     let longestPathSoFarEnd = 0;
-    let z= null;
+    let elevations = {};
     const allCoord = []
+    let maxElevation = 0
+    let minElevation = 100000
     //Iterate through every path way
     for(let i = 0; i < elements.length; i++){
         let currElem = elements[i];
@@ -61,10 +63,14 @@ export function createGraph(elements,startCoord,endCoord,elemElevationDict){
                 let prevElevation = elemElevationDict[currElem['id']][prevNode];
                 // let currElevation = map.current.queryTerrainElevation(currCoord)
                 let currElevation = elemElevationDict[currElem['id']][currNode];
-
+                
                 let elevationDiff = currElevation - prevElevation;
-                // console.log('elediff' + elevationDiff)
                 if(elevationDiff < 0) elevationDiff = 0
+                else{
+                    if(currElevation > maxElevation) maxElevation = currElevation
+                    if(currElevation < minElevation) minElevation = currElevation
+                    elevations[currNode] = currElevation
+                }
                 var line = turf.lineString([prevNodeCoord, currCoord]);
                 var length = turf.length(line, {units: 'miles'}); 
                 if(!graph.hasNode(currNode)){
@@ -81,6 +87,6 @@ export function createGraph(elements,startCoord,endCoord,elemElevationDict){
         }
         allCoord.push(allC)
     }
-    return [possibleStart,possibleEnd,graph,allCoord]
+    return [possibleStart,possibleEnd,graph,allCoord,elevations,maxElevation,minElevation]
 
 }

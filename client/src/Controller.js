@@ -1,7 +1,5 @@
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import Graph from 'graphology';
-import {willCreateCycle} from 'graphology-dag';
-
 export async function fetchAsync (startCoord,endCoord) {
 
     let query = undefined;
@@ -9,7 +7,8 @@ export async function fetchAsync (startCoord,endCoord) {
     console.log(startCoord,endCoord)
     // Allow some leeway around coordinates to make path
     if(startCoord[1] < endCoord[1]){
-        let minCoord = [startCoord[0]-0.003,startCoord[1]-0.003]
+        let minCoord = [
+            startCoord[0]-0.003,startCoord[1]-0.003]
         let maxCoord = [endCoord[0]+0.003,endCoord[1]+0.003]
         query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way["highway"="footway"](${minCoord[1]},${minCoord[0]},${maxCoord[1]},${maxCoord[0]});out geom;`
     } else {
@@ -44,10 +43,10 @@ export async function getElevation(elements){
         body: jsonElem
       }).then(async function(result){ 
           let temp = result.json()
-          console.log(temp)
+        //   console.log(temp)
           return temp
         }).then((result) => {
-            console.log(result)
+            // console.log(result)
             return result['results']
         })
     return response
@@ -65,122 +64,45 @@ export function minWeightNode (weights, visited){
       return shortest;
   };
 
-export function maxWeightNode (weights, visited){
-     
-    let max = null;
-    for (let node in weights) {
-        let currMax = max === null || weights[node] > weights[max];
-        if (currMax && !visited.includes(node)) {
-            max = node;
-        }
-    }
-    return max;
-};
 
 export function findPath(graph, startNode, endNode,maxIncrease,maximize){
-
-    let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
-    let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
-    console.log(startCoord)
-    console.log(endCoord)
-    let visitedNode ={}
-    let weights = {};
-    let distance = {};
-    if(maximize == true){
-        distance[endNode] = 0;
-        weights[endNode] = 0;
-    }
-    else{
-        distance[endNode] = Infinity;
-        weights[endNode] = Infinity;
-    }
-    let parents = {};
-    parents[endNode] = null;
-    for(let i = 0; i < graph.neighbors(startNode).length; i++){
-        let child = graph.neighbors(startNode)[i]
-        distance[child] =  graph.getUndirectedEdgeAttributes(startNode, child)['distance'];
-        weights[child] = graph.getUndirectedEdgeAttributes(startNode, child)['elevationGain'];
-        parents[child] = startNode;
-    }
-
-    let visited = [];
-    let node = null;
-    node = maximize ? maxWeightNode(weights, visited) : minWeightNode(weights, visited);
-    let path = new Graph()
-    while (node) {
-       let weight = weights[node];
-       let children = graph.neighbors(node); 
-       for(let i = 0; i < children.length; i++){
-          let child = children[i]
-          if (String(child) === String(startNode)) {
-             continue;
-          } else {
-             let value = graph.getUndirectedEdgeAttributes(node, child)['elevationGain']
-             value = value !== 0 ? value : 0.00001;
-             let newWeight = weight + value;
-             let newDist = distance[node] + graph.getUndirectedEdgeAttributes(node, child)['distance'];
-             console.log(newDist)
-             if(newDist > maxIncrease && !maximize){
-                newWeight += 1;
+    let minPath = null;
+    let minElevationGain = Infinity;
+    let maxElevationGain = 0
+    let minDistance = Infinity;
+    const newGraph = graph.copy()
+    for(let i = 0;i < 10; i++){
+        let [newPath,totalDistance,totalElevationGain] = findShortestPath(newGraph, startNode,endNode,'distance')
+         if(newPath == null || newPath.length == 0) break;
+         if(totalDistance <= maxIncrease) {
+             if(!maximize && totalElevationGain <= minElevationGain){
+                minDistance = totalDistance
+                minElevationGain = totalElevationGain
+                minPath = newPath
              }
-            if(newDist > maxIncrease && maximize){
-                newWeight += -1;
+             if(maximize && totalElevationGain >= maxElevationGain){
+                minDistance = totalDistance
+                minElevationGain = totalElevationGain
+                minPath = newPath
              }
-             if (!maximize && (!weights[child] || weights[child] >= newWeight)) {
-                weights[child] = newWeight;
-                distance[child] = newDist;
-                parents[child] = node;
-            } 
-            if (maximize && (!weights[child] || weights[child] <= newWeight)) {
-                if(willCreateCycle(path,child,node)){
-                    continue
-                }
-                if(!path.hasNode(child)){
-                    path.addNode(child)
-                }
-                if(!path.hasNode(node)){
-                    path.addNode(node)
-                }
-                path.addEdge(child,node)
-                weights[child] = newWeight;
-                distance[child]= newDist;
-                parents[child] = node;
-            } 
+         }     
+         let min = 0
+         let minEdge =null
+         for(let j = 2; j < newPath.length -3; j+=1){
+             let dist = newGraph.neighbors(newPath[j]).length
+             if(dist > min){
+                 minEdge = [newPath[j],newPath[j+1]]
+                 min = dist
+             }
          }
-      } 
-    if(visitedNode[node] == undefined) visitedNode[node] = 0
-    visitedNode[node] += 1
-    visited.push(node);
-    node = maximize ? maxWeightNode(weights, visited) : minWeightNode(weights, visited);
-   }
-   console.log("start node " + startNode)
-   console.log("end node" + endNode)
-   console.log("parents " + JSON.stringify(parents, null, 4))
-   let totalElevationGain = 0
-   let totalDistance = 0
-   let shortestPath = [endNode];
-   let parent = parents[endNode];
-   while (parent) {
-      shortestPath.push(parent);
-      if(parents[parent]){
-        totalElevationGain += graph.getUndirectedEdgeAttributes(parent,parents[parent])["elevationGain"]
-        totalDistance += graph.getUndirectedEdgeAttributes(parent,parents[parent])["distance"]
-      }
-      parent = parents[parent];
-   }
-   console.log(shortestPath);
-   console.log("total elevation gain " + totalElevationGain)
-   console.log("total distance " + totalDistance)
-   shortestPath.reverse();
-   return [shortestPath,totalDistance,totalElevationGain];
+         newGraph.dropEdge(minEdge[0],minEdge[1])
+    }
+    return [minPath,minDistance,minElevationGain];
 }
 
 export function findShortestPath (graph, startNode, endNode,attribute) {
+   
     attribute = typeof attribute !== 'undefined' ? attribute : 'distance';
-    let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
-    let endCoord = graph.getNodeAttributes(endNode)["coordinates"]
-    console.log(startCoord)
-    console.log(endCoord)
 
     let weights = {};
     weights[endNode] = Infinity;
@@ -215,9 +137,9 @@ export function findShortestPath (graph, startNode, endNode,attribute) {
     visited.push(node);
     node = minWeightNode(weights, visited);
    }
-   console.log("start node " + startNode)
-   console.log("end node" + endNode)
-   console.log("parents " + JSON.stringify(parents, null, 4))
+//    console.log("start node " + startNode)
+//    console.log("end node" + endNode)
+//    console.log("parents " + JSON.stringify(parents, null, 4))
    let totalElevationGain = 0
    let totalDistance = 0
    let shortestPath = [endNode];
@@ -230,10 +152,12 @@ export function findShortestPath (graph, startNode, endNode,attribute) {
       }
       parent = parents[parent];
    }
-   console.log(shortestPath);
-   console.log("total elevation gain " + totalElevationGain)
-   console.log("total distance " + totalDistance)
+//    console.log(shortestPath);
+//    console.log("total elevation gain " + totalElevationGain)
+//    console.log("total distance " + totalDistance)
    shortestPath.reverse();
+
+
    return [shortestPath,totalDistance,totalElevationGain];
 
 };
