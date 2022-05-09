@@ -114,3 +114,8 @@
 .data-header{
     font-family: 'Courier New', Courier, monospace;
 }
+.logo{
+    margin-left: 5vh;
+    margin-top: 80vh;
+    position: absolute;
+}

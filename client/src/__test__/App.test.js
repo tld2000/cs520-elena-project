@@ -4,6 +4,7 @@ import {render, waitFor } from "@testing-library/react"
 import App from '../App'
 // import {createGraph} from '../App'
 import {createGraph} from '../Controller'
+
 jest.mock('mapbox-gl', () => ({
     Map: jest.fn()
 }));

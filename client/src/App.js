@@ -10,6 +10,7 @@ import Graph from 'graphology';
 import {ToggleButtonGroup, ToggleButton,Button,Slider} from '@mui/material'
 import { createGraph } from './Model';
 import {fetchAsync, findShortestPath,findPath} from './Controller'
+import logo from './EleNaIcon.png';
 mapboxgl.accessToken = 'pk.eyJ1Ijoia2F6dWhhb2thbW90byIsImEiOiJjbDF2NjhmMm8yZjY4M2Ntb3hsOGRibWtkIn0.s0CQAwqbmc-DTF7E9vkm1w';
 
 
@@ -334,6 +335,9 @@ return (
                     <p className = "data-header">Total Distance: {totalDist}</p>
                     <p className = "data-header">Total Elevation Gain: {totalElevationGain}</p>
                 </div>
+            </div>
+            <div className = "logo">
+                <img src={logo} width="250" height="150" />
             </div>
         </div>
 
