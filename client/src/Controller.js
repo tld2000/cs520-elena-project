@@ -23,6 +23,11 @@ export async function fetchAsync (startCoord,endCoord) {
     return [data.elements,result];
   }
 
+/**
+ * Traverse through data elements to return all elevations
+ * @param  {Any} elements - Data elements
+ * @return {Any} response - Elevations of data elements
+ */
 export async function getElevation(elements){
     // query elevation for all nodes
     var elemDict = {}
@@ -52,6 +57,12 @@ export async function getElevation(elements){
     return response
 }
 
+ /**
+ * Traverse through weighted nodes to return the minimum weight node
+ * @param  {Any} weights - Weights of all nodes
+ * @param  {Any} visited - The nodes already visited
+ * @return {String} shortest - Minimum weight node
+ */
 export function minWeightNode (weights, visited){
      
       let shortest = null;
@@ -64,6 +75,12 @@ export function minWeightNode (weights, visited){
       return shortest;
   };
 
+ /**
+ * Traverse through weighted nodes to return the maximum weight node
+ * @param  {Any} weights - Weights of all nodes
+ * @param  {Any} visited - The nodes already visited
+ * @return {String} max - Maximum weight node
+ */
 export function maxWeightNode (weights, visited){
      
     let max = null;
@@ -76,6 +93,18 @@ export function maxWeightNode (weights, visited){
     return max;
 };
 
+/**
+ * Traverse through the full path graph to find a path
+ * @param {Graph} graph - The full path graph
+ * @param {Any} startNode - The starting node
+ * @param {Any} endNode - The ending node
+ * @param {Any} maxIncrease - The maximum amount to increase elevation by
+ * @param {Any} maximize - Attribute to maximize elevation gain
+ * @return {Array: [Any, Number, Number]} [shortestPath, totalDistance, totalElevationGain] - 
+ * [The shortest path in terms of maximizing elevation,
+ * The total distance in miles,
+ * The total elevation gain in miles]
+ */
 export function findPath(graph, startNode, endNode,maxIncrease,maximize){
 
     let startCoord = graph.getNodeAttributes(startNode)["coordinates"]
@@ -162,6 +191,17 @@ export function findPath(graph, startNode, endNode,maxIncrease,maximize){
    return [shortestPath,totalDistance,totalElevationGain];
 }
 
+/**
+ * Traverse through the full path graph to find the shortest path
+ * @param {Graph} graph - The full path graph
+ * @param {Any} startNode - The starting node
+ * @param {Any} endNode - The ending node
+ * @param {Any} attribute - The attribute of the node
+ * @return {Array: [Any, Number, Number]} [shortestPath, totalDistance, totalElevationGain] - 
+ * [The shortest path,
+ * The total distance in miles,
+ * The total elevation gain in miles]
+ */
 export function findShortestPath (graph, startNode, endNode,attribute) {
     attribute = typeof attribute !== 'undefined' ? attribute : 'distance';
     let startCoord = graph.getNodeAttributes(startNode)["coordinates"]

@@ -4,7 +4,18 @@ import Graph from 'graphology';
 
 import * as turf from '@turf/turf'
 
-
+/**
+ * Create a Graph with elements, coordinates, and elevations.
+ * @param {Graph} graph - The full path graph
+ * @param {Any} startCoord - The start location coordinate
+ * @param {Any} endNode - The end location coordinate
+ * @param {Any} elemElevationDict - Dictionary containing elevations of elements
+ * @return {Array: [Any, Any, {Graph}, Array[][][]]} [possibleStart,possibleEnd,graph,allCoord] -
+ * [A possible start to the graph,
+ * A possible end to the graph,
+ * full path graph created with elements, coordinates, and elevations,
+ * all coordinates in the graph]
+ */
 export function createGraph(elements,startCoord,endCoord,elemElevationDict){
     console.log(elemElevationDict)
     // Allow for multiple paths of different weights between two nodes
