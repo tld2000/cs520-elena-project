@@ -64,7 +64,7 @@ export default function App() {
 useEffect(() => {
     if (map.current) return; // initialize map only once
     modeTransport.current = '["highway"="footway"]'
-    boolMax.current = 'true'
+    boolMax.current = 'false'
     currentMarkers.current = []
     map.current = new mapboxgl.Map({
     container: mapContainer.current,
@@ -157,11 +157,14 @@ async function drawGraph(startCoord,endCoord){
             setDist(totalDistance)
             setElev(totalElevationGain)
         }
-        //TODO: FIGURE OUT MAX PATH
-        // else if(boolMax.current == true){
-        //     let maxPath = findPath(graph,possibleStart,possibleEnd,maxDistIncrease,true)
-        //     drawRoute(graph,maxPath)
-        // }
+        // TODO: FIGURE OUT MAX PATH
+        else if(boolMax.current == true){
+            let [maxPath,totDis,totEl]= findPath(graph,possibleStart,possibleEnd,maxDistIncrease,true)
+            path = maxPath
+            setDist(totDis)
+            setElev(totEl)
+            // drawRoute(graph,maxPath)
+        }
         else{
             let [minPath,totDis,totEl] = findPath(graph,possibleStart,possibleEnd,maxDistIncrease,false)
             path = minPath
@@ -178,7 +181,7 @@ async function drawGraph(startCoord,endCoord){
     //Draw out all possible paths in gray using mapbox API
     console.log(allC)
     for(let i =0; i < allC.length;i++){
-        map.current.addSource('route' +i , {
+        map.current.addSource('route' + i , {
             'type': 'geojson',
             'data': {
             'type': 'Feature',
@@ -230,10 +233,15 @@ async function drawGraph(startCoord,endCoord){
  */
 async function drawRoute(graph, nodeIds){
     let allCoords = []
+    console.log(nodeIds)
     for(let i = 0; i < nodeIds.length;i++){
-        allCoords.push(graph.getNodeAttribute(nodeIds[i],"coordinates"));
+        // console.log(nodeIds[i])
+        if(graph.hasNode(nodeIds[i])){
+            allCoords.push(graph.getNodeAttributes(nodeIds[i])["coordinates"]);
+        }
     }
-        map.current.addSource('route 1', {
+    console.log(allCoords)
+    map.current.addSource('green', {
         'type': 'geojson',
         'data': {
         'type': 'Feature',
@@ -245,9 +253,9 @@ async function drawRoute(graph, nodeIds){
         }
         });
     map.current.addLayer({
-            'id': 'route 1',
+            'id': 'green',
             'type': 'line',
-            'source': 'route 1',
+            'source': 'green',
             'layout': {
             'line-join': 'round',
             'line-cap': 'round'
