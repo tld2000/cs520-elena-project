@@ -1,5 +1,6 @@
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
-
+import Graph from 'graphology';
+import {willCreateCycle} from 'graphology-dag';
 
 export async function fetchAsync (startCoord,endCoord) {
 
@@ -105,7 +106,7 @@ export function findPath(graph, startNode, endNode,maxIncrease,maximize){
     let visited = [];
     let node = null;
     node = maximize ? maxWeightNode(weights, visited) : minWeightNode(weights, visited);
- 
+    let path = new Graph()
     while (node) {
        let weight = weights[node];
        let children = graph.neighbors(node); 
@@ -119,8 +120,11 @@ export function findPath(graph, startNode, endNode,maxIncrease,maximize){
              let newWeight = weight + value;
              let newDist = distance[node] + graph.getUndirectedEdgeAttributes(node, child)['distance'];
              console.log(newDist)
-             if(newDist > maxIncrease){
+             if(newDist > maxIncrease && !maximize){
                 newWeight += 1;
+             }
+            if(newDist > maxIncrease && maximize){
+                newWeight += -1;
              }
              if (!maximize && (!weights[child] || weights[child] >= newWeight)) {
                 weights[child] = newWeight;
@@ -128,7 +132,16 @@ export function findPath(graph, startNode, endNode,maxIncrease,maximize){
                 parents[child] = node;
             } 
             if (maximize && (!weights[child] || weights[child] <= newWeight)) {
-
+                if(willCreateCycle(path,child,node)){
+                    continue
+                }
+                if(!path.hasNode(child)){
+                    path.addNode(child)
+                }
+                if(!path.hasNode(node)){
+                    path.addNode(node)
+                }
+                path.addEdge(child,node)
                 weights[child] = newWeight;
                 distance[child]= newDist;
                 parents[child] = node;
