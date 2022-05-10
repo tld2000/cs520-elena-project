@@ -4,7 +4,7 @@ export async function fetchAsync (startCoord,endCoord) {
 
     let query = undefined;
 
-    console.log(startCoord,endCoord)
+    //console.log(startCoord,endCoord)
     // Allow some leeway around coordinates to make path
     if(startCoord[1] < endCoord[1]){
         let minCoord = [
@@ -66,6 +66,7 @@ export function minWeightNode (weights, visited){
           if (currShortest && !visited.includes(node)) {
               shortest = node;
           }
+          console.log(shortest)
       }
       return shortest;
   };
