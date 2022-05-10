@@ -1,0 +1,84 @@
+{"version": 0.6, 
+    "generator": "Overpass API 0.7.57.2 48842a1b", 
+    "osm3s": {"copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
+      "timestamp_osm_base": "2022-05-09T23:54:29Z"
+    }, 
+    "elements": [
+        {
+            "type": "way",
+            "id": 9058173,
+            "bounds": {
+                "minlat": 42.3884674,
+                "minlon": -72.5262307,
+                "maxlat": 42.3885566,
+                "maxlon": -72.5261539
+            },
+            "nodes": [
+                66684861,
+                1443766378
+            ],
+            "geometry": [
+                {
+                    "lat": 42.3885566,
+                    "lon": -72.5261539
+                },
+                {
+                    "lat": 42.3884674,
+                    "lon": -72.5262307
+                }
+            ],
+            "tags": {
+                "bicycle": "yes",
+                "highway": "footway"
+            }
+        },
+        {
+            "type": "way",
+            "id": 130730309,
+            "bounds": {
+                "minlat": 42.3880582,
+                "minlon": -72.5281125,
+                "maxlat": 42.3881146,
+                "maxlon": -72.5271171
+            },
+            "nodes": [
+                1439024989,
+                1439024918,
+                1439024870,
+                1439024822,
+                1439024787,
+                1439024776
+            ],
+            "geometry": [
+                {
+                    "lat": 42.3880582,
+                    "lon": -72.5281125
+                },
+                {
+                    "lat": 42.3880893,
+                    "lon": -72.527918
+                },
+                {
+                    "lat": 42.3881048,
+                    "lon": -72.5277884
+                },
+                {
+                    "lat": 42.3881146,
+                    "lon": -72.5276662
+                },
+                {
+                    "lat": 42.3880791,
+                    "lon": -72.5274008
+                },
+                {
+                    "lat": 42.3880909,
+                    "lon": -72.5271171
+                }
+            ],
+            "tags": {
+                "bicycle": "yes",
+                "highway": "footway"
+            }
+        }
+    ]
+}
