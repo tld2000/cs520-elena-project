@@ -1,17 +1,16 @@
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { fetchAsync, getElevation , minWeightNode, maxWeightNode, findPath, findShortestPath} from '../Controller';
 import {createGraph} from '../Model';
-jest.mock('../Controller')
+//jest.mock('../Controller')
 
 
 describe('fetchAsync', () => {
     test('fetchAsync calls', async () => {
-      global.fetch = jest
-        .fn(() =>
-          Promise.resolve({ json: () => Promise.resolve(function(){
-            let data = require('./testJSON/overpassAPIMockResponse.json')
-            return data
-          }) })
+      const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(() =>
+        Promise.resolve({async json() {console.log('aaa'); return require('./testJSON/overpassAPIMockResponse.json')}
+           })
         )
 
       let mockResult = {
@@ -21,9 +20,8 @@ describe('fetchAsync', () => {
         },
         '2':{'2-0':3}
       }
-
-      const getElevationMock = getElevation
-        .mockImplementation((a,b,c) => Promise.resolve({
+      
+      getElevation = jest.fn().mockReturnValue(Promise.resolve({
           'results':mockResult
         }) )
         
@@ -31,7 +29,7 @@ describe('fetchAsync', () => {
       const endCoord = [-72.525736, 42.388246];
       const data = await fetchAsync(startCoord, endCoord);
       const mockData = require('./testJSON/overpassAPIMockResponse.json')
-      console.log(data)
+      //console.log(data)
       expect(Array.isArray(data)).toEqual(true);
       expect(fetchMock).toHaveBeenCalledWith(
         "https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way[\"highway\"=\"footway\"](42.383647,-72.527169,42.391246,-72.522736);out geom;"
@@ -79,6 +77,19 @@ describe('getElevation', () => {
         expect(Array.isArray(elevation)).not.toBe(null);
     })
 })
+
+describe('minWeightNode', () => {
+  test('minWeightNode returns min node', () => {
+      let weights = {node1:10,
+                    node2:20,
+                  node3:30,
+                node4:5}
+      let visited = ['node4']
+      const minNode = minWeightNode(weights, visited);
+      expect(minNode).toEqual('node1');
+  })
+})
+
 
 describe('findPath', () => {
     test('findPath returns a path, distance, and elevation gain', async () => {

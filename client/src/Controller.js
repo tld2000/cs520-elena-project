@@ -19,7 +19,7 @@ export async function fetchAsync (startCoord,endCoord) {
     // query = `https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way`+`${modeTransport.current}`+`(${bounds._sw.lat},${bounds._sw.lng},${bounds._ne.lat},${bounds._ne.lng});out geom;`
     let response = await fetch(query);
     let data = await response.json();
-    console.log(response.json())
+    //console.log(response.json())
     let result = await getElevation(data.elements,startCoord,endCoord)
     console.log('data')
     console.log(data)
@@ -63,6 +63,7 @@ export function minWeightNode (weights, visited){
           if (currShortest && !visited.includes(node)) {
               shortest = node;
           }
+          console.log(shortest)
       }
       return shortest;
   };
