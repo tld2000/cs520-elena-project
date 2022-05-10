@@ -20,7 +20,6 @@ describe('createGraph', () => {
       expect(Array.isArray(result)).toEqual(true);
       expect(result[0]).toEqual(1439024944)
       expect(result[1]).toEqual(1443766378)
-      // expect(results[2]).toEqual(graph) // graph ids changes every run
       expect(result[3]).toEqual(allC)
       expect(result[4]).toEqual(elevations)
       expect(result[5]).toEqual(87.43270111083984)

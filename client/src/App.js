@@ -247,19 +247,6 @@ async function drawGraph(startCoord,endCoord){
     }
 
     // console.log(path)
-    console.log('creategraph')
-    console.log(elements)
-    console.log(startCoord)
-    console.log(endCoord)
-    console.log(elemElevationDict)
-    console.log('res')
-    console.log(possibleStart)
-    console.log(possibleEnd)
-    console.log(graph)
-    console.log(allC)
-    console.log(elevations)
-    console.log(maxElevation)
-    console.log(minElevation)
 
 
     // Draw out final route in green

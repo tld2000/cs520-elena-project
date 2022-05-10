@@ -66,7 +66,6 @@ export function minWeightNode (weights, visited){
           if (currShortest && !visited.includes(node)) {
               shortest = node;
           }
-          console.log(shortest)
       }
       return shortest;
   };
@@ -104,6 +103,14 @@ export function findPath(graph, startNode, endNode,maxIncrease,maximize){
          }
          newGraph.dropEdge(minEdge[0],minEdge[1])
     }
+    console.log('find')
+    console.log(startNode)
+    console.log(endNode)
+    console.log(maxIncrease)
+    console.log(maximize)
+    console.log('res')
+    console.log(minDistance)
+    console.log(minElevationGain)
     return [minPath,minDistance,minElevationGain];
 }
 
@@ -164,8 +171,6 @@ export function findShortestPath (graph, startNode, endNode,attribute) {
 //    console.log("total distance " + totalDistance)
    shortestPath.reverse();
 
-
    return [shortestPath,totalDistance,totalElevationGain];
-
 };
 

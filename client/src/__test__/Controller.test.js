@@ -7,7 +7,6 @@ import {createGraph} from '../Model';
 describe('fetchAsync', () => {
     test('fetchAsync calls', async () => {
       const fetchMock = jest
-<<<<<<< HEAD
         .spyOn(global, 'fetch')
         .mockImplementation(() =>
           Promise.resolve({ json: () => Promise.resolve({json:function(){
@@ -38,36 +37,6 @@ describe('fetchAsync', () => {
         "https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way[\"highway\"=\"footway\"](42.383647,-72.527169,42.391246,-72.522736);out geom;"
         
         )
-=======
-      .spyOn(global, 'fetch')
-      .mockImplementation(() =>
-        Promise.resolve({async json() {console.log('aaa'); return require('./testJSON/overpassAPIMockResponse.json')}
-           })
-        )
-
-      let mockResult = {
-        '1':{
-          '1-0':1,
-          '1-1':2
-        },
-        '2':{'2-0':3}
-      }
-      
-      getElevation = jest.fn().mockReturnValue(Promise.resolve({
-          'results':mockResult
-        }) )
-        
-      const startCoord = [-72.524169, 42.386647];
-      const endCoord = [-72.525736, 42.388246];
-      const data = await fetchAsync(startCoord, endCoord);
-      const mockData = require('./testJSON/overpassAPIMockResponse.json')
-      //console.log(data)
-      expect(Array.isArray(data)).toEqual(true);
-      expect(fetchMock).toHaveBeenCalledWith(
-        "https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way[\"highway\"=\"footway\"](42.383647,-72.527169,42.391246,-72.522736);out geom;"
-      )
-      expect(data).toEqual([mockData.elements, mockResult])
->>>>>>> 4e6707008d9e33e45bca218aefa081443fe045e5
     })
 })
 
@@ -130,7 +99,7 @@ describe('getElevation', () => {
 
 
 
-/*
+
 describe('minWeightNode', () => {
   test('minWeightNode returns min node', () => {
       let weights = {node1:10,
@@ -146,39 +115,24 @@ describe('minWeightNode', () => {
 
 describe('findPath', () => {
     test('findPath returns a path, distance, and elevation gain', async () => {
-        const fetchMock = jest
-        .spyOn(global, 'fetch')
-        .mockImplementation(() =>
-            Promise.resolve({ json: () => Promise.resolve([]) })
-        )
-        const startCoord = [-72.524169, 42.386647];
-        const endCoord = [-72.525736, 42.388246];
-        const data = await fetchAsync(startCoord, endCoord);
-        const elements = data[0];
-        const dict = data[1];
-        expect(fetchMock).toHaveBeenCalledWith(
-          "https://www.overpass-api.de/api/interpreter?data=[out:json][timeout:60];way[\"highway\"=\"footway\"](42.383647,-72.527169,42.391246,-72.522736);out geom;"
-        )
-        const createdGraph = createGraph(Array.isArray(elements), startCoord, endCoord, Array.isArray(dict));
-        const possibleStart = createdGraph[0];
-        const possibleEnd = createdGraph[1];
-        const graph = createdGraph[2];
-        const allCoord = createdGraph[3];
-        const shortestPathData = findShortestPath(graph, possibleStart, possibleEnd, 'distance');
-        const totalDistance = shortestPathData[1];
-        const maxDistIncrease = totalDistance + totalDistance * (1/100);
-        const pathData = findPath(graph, possibleStart, possibleEnd, maxDistIncrease, false);
-        const path = pathData[0];
-        const totalDist = pathData[1];
-        const totalElevationGain = pathData[2];
-        expect(Array.isArray(path)).not.toBe(null);
-        expect(totalDist).not.toBe(null);
-        expect(totalElevationGain).not.toBe(null);
+        const startNode = null
     })
 })
 
 describe('findShortestPath', () => {
     test('findShortestPath returns a path, distance, and elevation gain', async () => {
-      const graph = new Graph();
+      const elements = require('./testJSON/createGraph/elements.json')['elements']
+      const startCoord = [-72.524169, 42.386647]
+      const endCoord = [-72.525736, 42.388246]
+      const elemElevationDict = require('./testJSON/createGraph/elemElevationDict.json')
+      const graph = createGraph(elements,startCoord,endCoord,elemElevationDict)[2]
+      
+      const shortest_path = require('./testJSON/findShortestPath/shortestPath.json')
+
+      const result = findShortestPath (graph, 1439024944, 1443766378, "distance")
+      expect(Array.isArray(result)).toEqual(true);
+      expect(result[0]).toEqual(shortest_path)
+      expect(result[1]).toEqual(0.33072559616849184)
+      expect(result[2]).toEqual(7.2880401611328125)
     })
-});*/
+});
