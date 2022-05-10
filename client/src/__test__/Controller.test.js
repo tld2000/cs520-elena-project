@@ -115,7 +115,18 @@ describe('minWeightNode', () => {
 
 describe('findPath', () => {
     test('findPath returns a path, distance, and elevation gain', async () => {
-        const startNode = null
+      const elements = require('./testJSON/createGraph/elements.json')['elements']
+      const startCoord = [-72.524169, 42.386647]
+      const endCoord = [-72.525736, 42.388246]
+      const elemElevationDict = require('./testJSON/createGraph/elemElevationDict.json')
+      const [possibleStart,possibleEnd,graph,allCoord,elevations,maxElevation,minElevation] = createGraph(elements,startCoord,endCoord,elemElevationDict)
+      const shortest_path = require('./testJSON/findShortestPath/shortestPath.json')["shortestPath"]
+
+      const result = findPath(graph, possibleStart, possibleEnd, 10, false)
+      expect(Array.isArray(result)).toEqual(true);
+      expect(result[0]).toEqual(shortest_path)
+      expect(result[1]).toEqual(0.33072559616849184)
+      expect(result[2]).toEqual(7.2880401611328125)
     })
 })
 
@@ -127,7 +138,7 @@ describe('findShortestPath', () => {
       const elemElevationDict = require('./testJSON/createGraph/elemElevationDict.json')
       const graph = createGraph(elements,startCoord,endCoord,elemElevationDict)[2]
       
-      const shortest_path = require('./testJSON/findShortestPath/shortestPath.json')
+      const shortest_path = require('./testJSON/findShortestPath/shortestPath.json')["shortestPath"]
 
       const result = findShortestPath (graph, 1439024944, 1443766378, "distance")
       expect(Array.isArray(result)).toEqual(true);
